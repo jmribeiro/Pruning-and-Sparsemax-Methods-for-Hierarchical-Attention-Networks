@@ -5,21 +5,21 @@ import matplotlib.pyplot as plt
 
 import torch
 from torch import nn
-from torch.utils.data.dataloader import DataLoader
+from torchtext.data import BucketIterator
 from tqdm import tqdm
 
-from datasets import OCRDataset, Yelp13Dataset, Yelp14Dataset, Yelp15Dataset, YahooDataset, IMDBDataset, AmazonDataset
-from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, FeedforwardNetwork
+from datasets import Yelp13Dataset, Yelp14Dataset, Yelp15Dataset, YahooDataset, IMDBDataset, AmazonDataset
+from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier
 
 
 # #################### #
 # Classification Utils #
 # #################### #
 
-def train_batch(X, y, model, optimizer, criterion):
+def train_batch(batch, model, optimizer, criterion):
 
-    X = X.to(model.device)
-    y = y.to(model.device)
+    X = batch.text.to(model.device)
+    y = batch.label.to(model.device)
 
     optimizer.zero_grad()
     model.train()
@@ -30,7 +30,7 @@ def train_batch(X, y, model, optimizer, criterion):
     loss.backward()
     optimizer.step()
 
-    return loss
+    return loss.detach()
 
 
 def predict(model, X):
@@ -39,16 +39,18 @@ def predict(model, X):
     return predicted_labels
 
 
-def evaluate(model, X, y):
+def evaluate(model, dataloader):
 
-    X = X.to(model.device)
-    y = y.to(model.device)
+    n_correct = 0
+    n_possible = 0
 
-    model.eval()
-
-    y_hat = predict(model, X)
-    n_correct = (y == y_hat).sum().item()
-    n_possible = float(y.shape[0])
+    for batch in dataloader:
+        X = batch.text.to(model.device)
+        y = batch.label.to(model.device)
+        model.eval()
+        y_hat = predict(model, X)
+        n_correct += (y == y_hat).sum().item()
+        n_possible += float(y.shape[0])
 
     return n_correct / n_possible
 
@@ -67,23 +69,19 @@ def plot(epochs, plottable, ylabel, name):
     plt.close()
 
 
-def main():
+if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('model', choices=[
-        'hierarchical_attention_network',
-        'pruned_hierarchical_attention_network',
-        'hierarchical_sparsemax_attention_network',
-        'mlp'
-    ], help="Which model should the script run?")
-
-    parser.add_argument('-dataset', help="Name of the dataset.", default='ocr')
-    parser.add_argument('-resources', help="Path to datasets folder.", default='resources')
+    # Main arguments
+    parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm'], help="Which model should the script run?")
+    parser.add_argument('dataset', choices=['yelp13', 'yelp14', 'yelp15', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
-    parser.add_argument('-layers', type=int, help="Number of layers", default=1)
+    parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=400)
+    parser.add_argument('-layers', type=int, help="Number of layers", default=2)
     parser.add_argument('-hidden_sizes', type=int, help="Number of units per hidden layer", default=100)
+    parser.add_argument('-bidirectional', action="store_true")
     parser.add_argument('-activation', help="Activation function", default="relu")
     parser.add_argument('-dropout', type=float, help="Dropout probability", default=0.1)
 
@@ -98,41 +96,56 @@ def main():
     # Miscellaneous
     parser.add_argument('-quiet', action='store_true', help='No execution output.')
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
-    parser.add_argument('-save_plot', action='store_true', help='Whether or not to plot validation losses and accuracies.')
+    parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
 
     opt = parser.parse_args()
+
+    if not opt.quiet:
+        print("# ################################### #", flush=True)
+        print("#    Pruning and Sparsemax Methods    #", flush=True)
+        print("# for Hierarchical Attention Networks #", flush=True)
+        print("# ################################### #\n", flush=True)
 
     # ############# #
     # 1 - Load Data #
     # ############# #
 
-    if opt.dataset == "ocr":       dataset = OCRDataset(opt.resources+"/letter.data")
-    elif opt.dataset == "yelp13":  dataset = Yelp13Dataset(opt.resources)
-    elif opt.dataset == "yelp14":  dataset = Yelp14Dataset(opt.resources)
-    elif opt.dataset == "yelp15":  dataset = Yelp15Dataset(opt.resources)
-    elif opt.dataset == "yahoo":   dataset = YahooDataset(opt.resources)
-    elif opt.dataset == "imdb":    dataset = IMDBDataset(opt.resources)
-    elif opt.dataset == "amazon":  dataset = AmazonDataset(opt.resources)
-    else: raise ValueError(f"Unknown dataset {opt.dataset}")
+    if not opt.quiet: print(f"*** Loading {opt.dataset} dataset ***", end="", flush=True)
 
-    X_dev, y_dev = dataset.X_dev, dataset.y_dev
-    X_test, y_test = dataset.X_test, dataset.y_test
+    if opt.dataset == "yelp13": dataset = Yelp13Dataset()
+    elif opt.dataset == "yelp14": dataset = Yelp14Dataset()
+    elif opt.dataset == "yelp15": dataset = Yelp15Dataset()
+    elif opt.dataset == "yahoo": dataset = YahooDataset()
+    elif opt.dataset == "imdb": dataset = IMDBDataset()
+    elif opt.dataset == "amazon": dataset = AmazonDataset()
+    else: dataset = None  # Unreachable code
+
+    trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test),
+                                                               batch_size=opt.batch_size)
+
+    if not opt.quiet: print(" (Done)", flush=True)
 
     # ################ #
     # 2 - Create Model #
     # ################ #
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and opt.cuda else "cpu")
-    if not opt.quiet: print(f"Using device '{device}'", flush=True)
 
-    if opt.model == "hierarchical_attention_network": model = HierarchicalAttentionNetwork(device)
-    elif opt.model == "pruned_hierarchical_attention_network": model = PrunedHierarchicalAttentionNetwork(device)
-    elif opt.model == "hierarchical_sparsemax_attention_network": model = PrunedHierarchicalAttentionNetwork(device)
-    elif opt.model == "mlp": model = FeedforwardNetwork(dataset.n_classes, dataset.n_features, opt.hidden_sizes, opt.layers, opt.activation, opt.dropout, device)
+    if not opt.quiet: print(f"*** Setting up {opt.model} model on device {device} ***", end="", flush=True)
+
+    if opt.model == "han": model = HierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
+    elif opt.model == "phan": model = PrunedHierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
+    elif opt.model == "hsan": model = PrunedHierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
+    elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, opt.embeddings_size, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
+    else: dataset = None  # Unreachable code
+
+    if not opt.quiet: print(" (Done)", flush=True)
 
     # ############# #
     # 3 - Optimizer #
     # ############# #
+
+    if not opt.quiet: print(f"*** Setting up {opt.optimizer} optimizer ***", end="", flush=True)
 
     optimizer = {
         "adam": torch.optim.Adam,
@@ -144,45 +157,51 @@ def main():
     )
     criterion = nn.CrossEntropyLoss()
 
+    if not opt.quiet: print(" (Done)\n", flush=True)
+
     # ###################### #
     # 4 - Train and Evaluate #
     # ###################### #
+
+    if not opt.quiet:
+        print(f"# ######## #", flush=True)
+        print(f"# Training #", flush=True)
+        print(f"# ######## #", flush=True)
 
     epochs = torch.arange(1, opt.epochs + 1)
     train_mean_losses = []
     valid_accs = []
     train_losses = []
-    dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True)
 
     for epoch in epochs:
+
         if not opt.quiet: print('\nTraining epoch {}'.format(epoch), flush=True)
-        progress_bar = tqdm(dataloader) if opt.tqdm else dataloader
-        for X_batch, y_batch in progress_bar:
-            loss = train_batch(X_batch, y_batch, model, optimizer, criterion)
+
+        for batch in tqdm(trainloader) if opt.tqdm else trainloader:
+            loss = train_batch(batch, model, optimizer, criterion)
             train_losses.append(loss)
 
         mean_loss = torch.tensor(train_losses).mean().item()
         if not opt.quiet: print('Training loss: %.4f' % mean_loss, flush=True)
 
         train_mean_losses.append(mean_loss)
-        valid_accs.append(evaluate(model, X_dev, y_dev))
+        valid_accs.append(evaluate(model, valloader))
         if not opt.quiet: print('Valid acc: %.4f' % (valid_accs[-1]), flush=True)
 
-    final_test_accuracy = evaluate(model, X_test, y_test)
+    final_test_accuracy = evaluate(model, testloader)
     if not opt.quiet: print('\nFinal Test acc: %.4f' % final_test_accuracy, flush=True)
 
     # ######## #
     # 4 - Plot #
     # ######## #
 
-    if opt.save_plot:
+    if not opt.no_plot:
+
+        if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
         try: os.mkdir(opt.plot_dir)
         except FileExistsError: pass
+
         plot(epochs, train_mean_losses, ylabel='Loss', name=f"{opt.plot_dir}/{opt.model}-training-loss")
         plot(epochs, valid_accs, ylabel='Accuracy', name=f"{opt.plot_dir}/{opt.model}-validation-accuracy")
 
-    return final_test_accuracy
-
-
-if __name__ == '__main__':
-    main()
+        if not opt.quiet: print(" (Done)\n", flush=True)

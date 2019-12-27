@@ -134,3 +134,6 @@ dmypy.json
 # DSL Project
 .resources/*
 !.resources/.gitkeep
+
+# Torch Text Datasets
+.data

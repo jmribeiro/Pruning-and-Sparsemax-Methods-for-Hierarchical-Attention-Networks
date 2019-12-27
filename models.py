@@ -1,9 +1,37 @@
+import torch
 from torch import nn
 
 """
 If three classes turn out to be very similar, 
 we refactor their code in the end
 """
+
+
+class LSTMClassifier(nn.Module):
+
+    """
+    Very simple LSTM Classifier to test the datasets.
+    """
+
+    def __init__(self, n_classes, n_inputs, embedding_size, layers, hidden_sizes, bidirectional, dropout, padding_value, device):
+
+        super().__init__()
+
+        self.embedding = nn.Embedding(n_inputs, embedding_size, padding_idx=padding_value)
+        self.bilstm = nn.LSTM(embedding_size, hidden_sizes, layers, dropout=dropout, batch_first=True, bidirectional=bidirectional)
+        if bidirectional: hidden_sizes *= 2
+        self.bidirectional = bidirectional
+        self.hidden_to_output = nn.Linear(hidden_sizes, n_classes)
+
+        self.device = device
+        self.to(device)
+
+    def forward(self, X):
+        embeddings = self.embedding(X)
+        _, (hidden, _) = self.bilstm(embeddings)
+        hidden_last = torch.cat((hidden[-2], hidden[-1]), dim=1) if self.bidirectional else hidden[-1]
+        scores = self.hidden_to_output(hidden_last)
+        return scores
 
 
 class HierarchicalAttentionNetwork(nn.Module):
@@ -18,12 +46,9 @@ class HierarchicalAttentionNetwork(nn.Module):
         self.to(device)
 
     def forward(self, X):
-        """
-        X (batch_size (B) x n_features (D)): a batch of training examples
-        Z (batch_size (B) x n_classes (K)): a batch of raw logits (no softmax)
-        """
-        Z = None
-        return Z
+        # TODO
+        scores = None
+        return scores
 
 
 class PrunedHierarchicalAttentionNetwork(nn.Module):
@@ -36,12 +61,9 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
         self.to(device)
 
     def forward(self, X):
-        """
-        X (batch_size (B) x n_features (D)): a batch of training examples
-        Z (batch_size (B) x n_classes (K)): a batch of raw logits (no softmax)
-        """
-        Z = None
-        return Z
+        # TODO
+        scores = None
+        return scores
 
 
 class HierarchicalSparsemaxAttentionNetwork(nn.Module):
@@ -54,47 +76,6 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
         self.to(device)
 
     def forward(self, X):
-        """
-        X (batch_size (B) x n_features (D)): a batch of training examples
-        Z (batch_size (B) x n_classes (K)): a batch of raw logits (no softmax)
-        """
-        Z = None
-        return Z
-
-
-class FeedforwardNetwork(nn.Module):
-
-    """
-    Used to test main's skeleton (train-eval loop).
-    Dont remove me.
-    """
-
-    def __init__(self, n_classes, n_features, hidden_size, layers, activation, dropout, device):
-
-        super(FeedforwardNetwork, self).__init__()
-
-        # Activation parsing
-        if activation == "tanh": act_fn = nn.Tanh()
-        else: act_fn = nn.ReLU()
-
-        # Input + First Hidden Layer
-        layer_list = [nn.Linear(n_features, hidden_size), act_fn, nn.Dropout(dropout)]
-
-        # Hidden Layers
-        for _ in range(layers - 1):  # We already added the first hidden layer with the input features
-            layer_list.extend((nn.Linear(hidden_size, hidden_size), act_fn, nn.Dropout(dropout)))
-
-        # Output Layer
-        layer_list.append(nn.Linear(hidden_size, n_classes))
-
-        self.Z = nn.Sequential(*layer_list)
-
-        self.device = device
-        self.to(device)
-
-    def forward(self, X):
-        """
-        X (batch_size (B) x n_features (D)): a batch of training examples
-        """
-        Z = self.Z(X)
-        return Z
+        # TODO
+        scores = None
+        return scores
