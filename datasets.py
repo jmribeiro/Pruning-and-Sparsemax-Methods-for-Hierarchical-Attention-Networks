@@ -2,6 +2,10 @@ import torch
 from torch.utils.data.dataset import Dataset
 from torchtext import datasets
 from torchtext.data import Field, LabelField
+from torch.utils.data.dataset import random_split
+from torchtext.datasets import text_classification
+
+
 
 
 class Yelp13Dataset(Dataset):
@@ -36,11 +40,18 @@ class Yelp15Dataset(Dataset):
 
     def __init__(self):
 
-        self.n_classes = None
-        self.n_words = None
-        self.training = None
-        self.validation = None
-        self.test = None
+        training, test = text_classification.YelpReviewPolarity(ngrams=5)
+        train_len = int(len(training) * 0.90)
+        training, validation = random_split(training, [train_len, len(training) - train_len])
+        words = training.get_vocab()
+
+        self.n_classes = len(training.get_labels())
+        self.n_words = len(words)
+        self.padding_value = words.itos.index(words.pad_token)
+        self.training = training
+        self.validation = validation
+        self.test = test
+
 
     def __len__(self):
         return len(self.training)
@@ -50,11 +61,18 @@ class YahooDataset(Dataset):
 
     def __init__(self):
 
-        self.n_classes = None
-        self.n_words = None
-        self.training = None
-        self.validation = None
-        self.test = None
+        training, test = text_classification.YahooAnswers(ngrams=5)
+        train_len = int(len(training) * 0.90)
+        training, validation = random_split(training, [train_len, len(training) - train_len])
+        words = training.get_vocab()
+
+        self.n_classes = len(training.get_labels())
+        self.n_words = len(words)
+        self.padding_value = words.itos.index(words.pad_token)
+        self.training = training
+        self.validation = validation
+        self.test = test
+
 
     def __len__(self):
         return len(self.training)
@@ -86,11 +104,17 @@ class AmazonDataset(Dataset):
 
     def __init__(self):
 
-        self.n_classes = None
-        self.n_words = None
-        self.training = None
-        self.validation = None
-        self.test = None
+        training, test = text_classification.AmazonReviewPolarity(ngrams=5)
+        train_len = int(len(training) * 0.90)
+        training, validation = random_split(training, [train_len, len(training) - train_len])
+        words = training.get_vocab()
+
+        self.n_classes = len(training.get_labels())
+        self.n_words = len(words)
+        self.padding_value = words.itos.index(words.pad_token)
+        self.training = training
+        self.validation = validation
+        self.test = test
 
     def __len__(self):
         return len(self.training)
