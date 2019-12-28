@@ -8,7 +8,7 @@ from torch import nn
 from torchtext.data import BucketIterator
 from tqdm import tqdm
 
-from datasets import Yelp13Dataset, Yelp14Dataset, Yelp15Dataset, YahooDataset, IMDBDataset, AmazonDataset
+from datasets import YelpReviewFullDataset, Yelp14Dataset, Yelp15Dataset, YahooDataset, IMDBDataset, AmazonDataset
 from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier
 
 
@@ -74,8 +74,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Main arguments
-    parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm'], help="Which model should the script run?")
-    parser.add_argument('dataset', choices=['yelp13', 'yelp14', 'yelp15', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
+    parser.add_argument('-model', choices=['han', 'phan', 'hsan', 'lstm'], help="Which model should the script run?")
+    parser.add_argument('dataset', choices=['yelpRF', 'yelp14', 'yelp15', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
     parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=400)
@@ -110,9 +110,15 @@ if __name__ == '__main__':
     # 1 - Load Data #
     # ############# #
 
-    if not opt.quiet: print(f"*** Loading {opt.dataset} dataset ***", end="", flush=True)
+    # Setting  root path
+    path = os.path.dirname(os.path.realpath(__file__)) + '/data/'
+    print(f"*** Root folder [{path}]  ***\n", end="", flush=True)
+    print("------------------------------------\n", flush=True)
 
-    if opt.dataset == "yelp13": dataset = Yelp13Dataset()
+    if not opt.quiet:
+        print(f"*** Loading {opt.dataset} dataset ***\n", end="", flush=True)
+
+    if opt.dataset == "yelpRF": dataset = YelpReviewFullDataset(path)
     elif opt.dataset == "yelp14": dataset = Yelp14Dataset()
     elif opt.dataset == "yelp15": dataset = Yelp15Dataset()
     elif opt.dataset == "yahoo": dataset = YahooDataset()

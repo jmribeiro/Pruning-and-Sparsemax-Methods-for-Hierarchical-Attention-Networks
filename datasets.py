@@ -6,20 +6,43 @@ from torch.utils.data.dataset import random_split
 from torchtext.datasets import text_classification
 
 
+class YelpReviewFullDataset(Dataset):
 
+    def __init__(self, path):
+        """
+        Training & Validation
+        1. dataset
+            get_vocab()
+            get_labels() [0...4]
+            _data
+        2. indices
+        ---------------------------
+        Test
+            get_vocab()
+            get_labels() [0...4]
+            _data
+        """
 
-class Yelp13Dataset(Dataset):
+        train_dataset, test_dataset = text_classification.YelpReviewFull(ngrams=3, root=path)
 
-    def __init__(self):
+        train_len = int(len(train_dataset) * .9)
+        train_dataset, validation_dataset = random_split(train_dataset, [train_len, len(train_dataset) - train_len])
 
-        self.n_classes = None
-        self.n_words = None
-        self.training = None
-        self.validation = None
-        self.test = None
+        self.training = train_dataset
+        self.validation = validation_dataset
+        self.test = test_dataset
 
     def __len__(self):
         return len(self.training)
+
+    def training(self):
+        return self.training
+
+    def validation(self):
+        return self.validation
+
+    def test(self):
+        return self.test
 
 
 class Yelp14Dataset(Dataset):
