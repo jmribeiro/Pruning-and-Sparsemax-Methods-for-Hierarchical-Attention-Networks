@@ -136,4 +136,4 @@ dmypy.json
 !.resources/.gitkeep
 
 # Torch Text Datasets
-.data
+.data/*

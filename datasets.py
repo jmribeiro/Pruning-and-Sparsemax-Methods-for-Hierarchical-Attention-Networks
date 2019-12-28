@@ -6,8 +6,6 @@ from torch.utils.data.dataset import random_split
 from torchtext.datasets import text_classification
 
 
-
-
 class Yelp13Dataset(Dataset):
 
     def __init__(self):
@@ -52,7 +50,6 @@ class Yelp15Dataset(Dataset):
         self.validation = validation
         self.test = test
 
-
     def __len__(self):
         return len(self.training)
 
@@ -72,7 +69,6 @@ class YahooDataset(Dataset):
         self.training = training
         self.validation = validation
         self.test = test
-
 
     def __len__(self):
         return len(self.training)
