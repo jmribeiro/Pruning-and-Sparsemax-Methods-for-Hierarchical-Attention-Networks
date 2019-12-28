@@ -78,8 +78,8 @@ if __name__ == '__main__':
     parser.add_argument('dataset', choices=['yelp13', 'yelp14', 'yelp15', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
-    parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=400)
-    parser.add_argument('-layers', type=int, help="Number of layers", default=2)
+    parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=300)
+    parser.add_argument('-layers', type=int, help="Number of layers", default=1)
     parser.add_argument('-hidden_sizes', type=int, help="Number of units per hidden layer", default=100)
     parser.add_argument('-bidirectional', action="store_true")
     parser.add_argument('-activation', help="Activation function", default="relu")
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     if not opt.quiet: print(f"*** Setting up {opt.model} model on device {device} ***", end="", flush=True)
 
-    if opt.model == "han": model = HierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
+    if opt.model == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.embeddings_size, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, device) # FIXME - Proper arguments when done
     elif opt.model == "phan": model = PrunedHierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
     elif opt.model == "hsan": model = PrunedHierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
     elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, opt.embeddings_size, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)

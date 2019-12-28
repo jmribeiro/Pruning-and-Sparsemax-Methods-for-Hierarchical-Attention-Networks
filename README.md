@@ -1,11 +1,40 @@
 # Pruning and Sparsemax Methods for Hierarchical Attention Networks
 ##### Deep Structured Learning Course, Computer Science PhD Program, Instituto Superior Técnico
 
-To install dependencies:
+#### To install dependencies:
+    
+1) Install Pytorch (pick config at will):
 
-    pip install -r requirements.txt
+    https://pytorch.org/get-started/locally/
+    
+2) Install latest Pytorch NLP version:
 
-To run:
+    `$ pip install git+https://github.com/PetrochukM/PyTorch-NLP.git`
 
-    python run.py {han, phan, hsan, lstm} {yelp13, yelp14, yelp15, yahoo, imdb, amazon}
+3) Install remaining requirements:
 
+    `$ pip install -r requirements.txt`
+
+#### To run:
+
+    $ python run.py model dataset
+    
+e.g. - Hierarchical Attention Network on IMDB dataset
+
+    $ python run.py han imdb
+
+##### Available models - lstm   # Update as implemented
+##### Available datasets - imdb # Update as implemented
+
+### FAQ
+
+1) _I'm getting the following error_:
+
+        RuntimeError: "view size is not compatible with input tensor's size and stride 
+        (at least one dimension spans across two contiguous subspaces). 
+        Use .reshape(...) instead."
+        
+    Solution: Update pytorch-nlp to its latest version:
+        
+        $ pip uninstall pytorch-nlp
+        $ pip install git+https://github.com/PetrochukM/PyTorch-NLP.git
