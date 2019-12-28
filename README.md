@@ -14,7 +14,9 @@
 3) Install remaining requirements:
 
     `$ pip install -r requirements.txt`
-
+    
+    `$ python -m spacy download en`
+    
 #### To run:
 
     $ python run.py model dataset

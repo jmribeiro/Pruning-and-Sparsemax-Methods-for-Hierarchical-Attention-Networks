@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn.utils.rnn import pad_sequence
 from torchnlp.nn import Attention
 
 """
@@ -39,9 +40,12 @@ class HierarchicalAttentionNetwork(nn.Module):
 
     """ Original model from https://www.cs.cmu.edu/~./hovy/papers/16HLT-hierarchical-attention-networks.pdf"""
 
-    def __init__(self, n_classes, n_words, embedding_size, hidden_sizes, layers, dropout, padding_value, device):
+    def __init__(self, n_classes, n_words, embedding_size, hidden_sizes, layers, dropout, padding_value, eos_value, device):
 
         super(HierarchicalAttentionNetwork, self).__init__()
+
+        self.padding_value = padding_value
+        self.eos_value = eos_value
 
         # TODO -> Load pretrained Word2Vec
         self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
@@ -57,12 +61,18 @@ class HierarchicalAttentionNetwork(nn.Module):
         self.device = device
         self.to(device)
 
-    def forward(self, X):
-
-        word_embeddings = self.embedder(X)
+    def forward(self, documents):
+        word_embeddings = self.embedder(documents)
         # TODO
         scores = None
         return scores
+
+    def split_into_sentences(self, document):
+        ends_of_sentence = (document == self.eos_value).nonzero()
+        sentences = [document[0:eos + 1] if i == 0 else document[ends_of_sentence[i - 1] + 1:eos + 1] for i, eos in enumerate(ends_of_sentence)]
+        sentences.append(document[ends_of_sentence[-1] + 1:])
+        document = pad_sequence(sentences, batch_first=True, padding_value=self.padding_value)
+        return document
 
 
 class PrunedHierarchicalAttentionNetwork(nn.Module):

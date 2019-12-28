@@ -78,9 +78,9 @@ if __name__ == '__main__':
     parser.add_argument('dataset', choices=['yelp13', 'yelp14', 'yelp15', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
-    parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=300)
+    parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=200)
     parser.add_argument('-layers', type=int, help="Number of layers", default=1)
-    parser.add_argument('-hidden_sizes', type=int, help="Number of units per hidden layer", default=100)
+    parser.add_argument('-hidden_sizes', type=int, help="Number of units per hidden layer", default=50)
     parser.add_argument('-bidirectional', action="store_true")
     parser.add_argument('-activation', help="Activation function", default="relu")
     parser.add_argument('-dropout', type=float, help="Dropout probability", default=0.1)
