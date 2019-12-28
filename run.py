@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     if not opt.quiet: print(f"*** Setting up {opt.model} model on device {device} ***", end="", flush=True)
 
-    if opt.model == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.embeddings_size, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, device) # FIXME - Proper arguments when done
+    if opt.model == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.embeddings_size, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device) # FIXME - Proper arguments when done
     elif opt.model == "phan": model = PrunedHierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
     elif opt.model == "hsan": model = PrunedHierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
     elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, opt.embeddings_size, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
