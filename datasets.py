@@ -62,7 +62,7 @@ class YahooDataset(Dataset):
 
     def __init__(self):
 
-        words = Field(batch_first=True, eos_token=".", tokenize="spacy")
+        words = Field(batch_first=True, eos_token=".", tokenize="spacy") # validar o eos_token deste dataset
         training, test = text_classification.YahooAnswers(ngrams=1)
 
 
