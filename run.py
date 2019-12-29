@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Main arguments
-    parser.add_argument('-model', choices=['han', 'phan', 'hsan', 'lstm'], help="Which model should the script run?")
+    parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm'], help="Which model should the script run?")
     parser.add_argument('dataset', choices=['yelpRF', 'yelp14', 'yelp15', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
