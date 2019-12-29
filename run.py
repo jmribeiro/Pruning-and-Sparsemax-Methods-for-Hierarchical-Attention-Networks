@@ -198,10 +198,10 @@ if __name__ == '__main__':
     if not opt.no_plot:
 
         if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
-        try: os.mkdir(opt.plot_dir)
+        try: os.mkdir("plots")
         except FileExistsError: pass
 
-        plot(epochs, train_mean_losses, ylabel='Loss', name=f"{opt.plot_dir}/{opt.model}-training-loss")
-        plot(epochs, valid_accs, ylabel='Accuracy', name=f"{opt.plot_dir}/{opt.model}-validation-accuracy")
+        plot(epochs, train_mean_losses, ylabel='Loss', name=f"plots/{opt.model}-training-loss")
+        plot(epochs, valid_accs, ylabel='Accuracy', name=f"plots/{opt.model}-validation-accuracy")
 
         if not opt.quiet: print(" (Done)\n", flush=True)
