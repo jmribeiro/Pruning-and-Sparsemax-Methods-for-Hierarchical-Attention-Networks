@@ -8,7 +8,7 @@ from torch import nn
 from torchtext.data import BucketIterator
 from tqdm import tqdm
 
-from datasets import YelpReviewFullDataset, Yelp14Dataset, Yelp15Dataset, YahooDataset, IMDBDataset, AmazonDataset, YelpReviewPolarity
+from datasets import YelpDataset, YahooDataset, IMDBDataset, AmazonDataset
 from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier
 
 
@@ -20,7 +20,6 @@ def train_batch(batch, model, optimizer, criterion):
 
     X = batch.text.to(model.device)
     y = batch.label.to(model.device)
-
 
     optimizer.zero_grad()
     model.train()
@@ -76,7 +75,7 @@ if __name__ == '__main__':
 
     # Main arguments
     parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm'], help="Which model should the script run?")
-    parser.add_argument('dataset', choices=['yelpRF', 'yelp14', 'yelp15', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
+    parser.add_argument('dataset', choices=['yelp', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
     parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=200)
@@ -95,6 +94,8 @@ if __name__ == '__main__':
     parser.add_argument('-cuda', action='store_true', help='Use cuda for parallelization if devices available')
 
     # Miscellaneous
+    parser.add_argument('-polarity', action='store_true', help="Positive/Negative labels for datasets.")
+    parser.add_argument('-debug', action='store_true', help="Datasets pruned into smaller sizes for faster loading.")
     parser.add_argument('-quiet', action='store_true', help='No execution output.')
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
@@ -112,19 +113,17 @@ if __name__ == '__main__':
     # ############# #
 
     if not opt.quiet:
-        print(f"*** Loading {opt.dataset} dataset ***", end="", flush=True)
+        print(f"*** Loading {opt.dataset} dataset{f' [small size / debug mode]' if opt.debug else ''} ***", end="", flush=True)
 
-    if opt.dataset == "yelpRF": dataset = YelpReviewFullDataset()
-    elif opt.dataset == "yelp14": dataset = Yelp14Dataset()
-    elif opt.dataset == "yelp15": dataset = Yelp15Dataset()
-    elif opt.dataset == "yahoo": dataset = YahooDataset()
+    if opt.dataset == "yelp": dataset = YelpDataset(full=not opt.polarity, debug=opt.debug)
+    elif opt.dataset == "yahoo": dataset = YahooDataset(debug=opt.debug)
     elif opt.dataset == "imdb": dataset = IMDBDataset()
-    elif opt.dataset == "amazon": dataset = AmazonDataset()
+    elif opt.dataset == "amazon": dataset = AmazonDataset(full=not opt.polarity, debug=opt.debug)
     else: dataset = None  # Unreachable code
 
-    trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test), batch_size=opt.batch_size)
+    trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test), batch_size=opt.batch_size, sort_key=dataset.sort_key)
 
-    if not opt.quiet: print(" (Done)", flush=True)
+    if not opt.quiet: print(f" (Done) [{len(dataset)} training samples]", flush=True)
 
     # ################ #
     # 2 - Create Model #

@@ -1,109 +1,103 @@
+from abc import abstractmethod
+
 import torch
 from torch.utils.data.dataset import Dataset
-from torchnlp.word_to_vector import GloVe
 from torchtext import datasets
-from torchtext.data import Field, LabelField
+from torchtext.data import Field, LabelField, TabularDataset
 from torch.utils.data.dataset import random_split
 from torchtext.datasets import text_classification
 
 
-class YelpReviewFullDataset(Dataset):
-    def __init__(self):
-        """
-        Training & Validation
-        1. dataset
-            get_vocab()
-            get_labels() [0...4]
-            _data
-        2. indices
-        ---------------------------
-        Test
-            get_vocab()
-            get_labels() [0...4]
-            _data
-        """
-        train_dataset, test_dataset = text_classification.YelpReviewFull(ngrams=3, root=".data")
+class BaseDataset(Dataset):
 
-        train_len = int(len(train_dataset) * .9)
-        train_dataset, validation_dataset = random_split(train_dataset, [train_len, len(train_dataset) - train_len])
+    def __init__(self, val_ratio):
 
-        self.training = train_dataset
-        self.validation = validation_dataset
-        self.test = test_dataset
+        words = Field(batch_first=True, eos_token=".", tokenize="spacy")
+        labels = LabelField(dtype=torch.long)
 
-    def __len__(self):
-        return len(self.training)
+        directory = self.load_dataset(".data")
+        training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv', fields=[('label', labels), ('text', words)])
 
-    def training(self):
-        return self.training
+        # Vocabs
+        words.build_vocab(training)
+        labels.build_vocab(training)
 
-    def validation(self):
-        return self.validation
+        # Validation Split
+        full_train_len = len(training)
+        val_len = int(val_ratio * full_train_len)
+        train_len = int(full_train_len - val_len)
+        training, validation = random_split(training, [train_len, val_len])
 
-    def test(self):
-        return self.test
+        training.fields = {'text': words, 'label': labels}
+        test.fields = {'text': words, 'label': labels}
+        validation.fields = {'text': words, 'label': labels}
 
-
-class Yelp14Dataset(Dataset):
-
-    def __init__(self):
-
-        self.n_classes = None
-        self.n_words = None
-        self.training = None
-        self.validation = None
-        self.test = None
-
-    def __len__(self):
-        return len(self.training)
-
-
-class Yelp15Dataset(Dataset):
-
-    def __init__(self):
-
-        # words = Field(batch_first=True, eos_token=".", tokenize="spacy") # validar o eos_token deste dataset
-        training, test = text_classification.YelpReviewPolarity(ngrams=1, vocab=None)
-        train_len = int(len(training) * 0.90)
-        training, validation = random_split(training, [train_len, len(training) - train_len])
-        # words.build_vocab(training)
-        words = training.get_vocab()
-
-        self.n_classes = len(training.get_labels())
-        self.n_words = len(words)
-        self.padding_value = words.itos.index(words.pad_token)
+        # Attributes
+        self.n_classes = len(labels.vocab)
+        self.n_words = len(words.vocab)
+        self.training = training
+        self.validation = validation
+        self.test = test
+        self.padding_value = words.vocab.itos.index(words.pad_token)
         self.end_of_sentence_value = words.vocab.itos.index(words.eos_token)
-        self.training = training
-        self.validation = validation
-        self.test = test
+        self.sort_key = lambda example: example.text
+
+    @abstractmethod
+    def load_dataset(self, root):
+        raise NotImplementedError()
 
     def __len__(self):
         return len(self.training)
 
 
-class YahooDataset(Dataset):
+class YelpDataset(BaseDataset):
 
-    def __init__(self):
+    def __init__(self, full=True, ngrams=3, debug=False):
+        self.full = full
+        self.ngrams = ngrams
+        self.debug = debug
+        super(YelpDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
 
-        # words = Field(batch_first=True, eos_token=".", tokenize="spacy")) # validar o eos_token deste dataset
-        training, test = text_classification.YahooAnswers(ngrams=1)
+    def load_dataset(self, root):
+        path = ".data/yelp_review_full_csv" if self.full else ".data/yelp_review_polarity_csv"
+        if not self.debug:
+            if self.full: text_classification.YelpReviewFull(ngrams=self.ngrams, root=root)
+            else: text_classification.YelpReviewPolarity(ngrams=self.ngrams, root=root)
+        else:
+            path += "_debug"
+        return path
 
 
-        train_len = int(len(training) * 0.90)
-        training, validation = random_split(training, [train_len, len(training) - train_len])
-        # words.build_vocab(training)
-        words = training.get_vocab()
+class YahooDataset(BaseDataset):
 
-        self.n_classes = len(training.get_labels())
-        self.n_words = len(training.get_vocab())
-        self.padding_value = training.get_vocab().itos.index(words.pad_token)
-        self.end_of_sentence_value = training.get_vocab().itos.index(words.eos_token)
-        self.training = training
-        self.validation = validation
-        self.test = test
+    def __init__(self, ngrams=5, debug=False):
+        self.ngrams = ngrams
+        self.debug = debug
+        super(YahooDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
 
-    def __len__(self):
-        return len(self.training)
+    def load_dataset(self, root):
+        path = ".data/yahoo_answers_csv"
+        if not self.debug: text_classification.YahooAnswers(ngrams=self.ngrams)
+        else: path += "_debug"
+        return path
+
+
+class AmazonDataset(BaseDataset):
+
+    def __init__(self, full=True, ngrams=5, debug=False):
+        self.full = full
+        self.ngrams = ngrams
+        self.debug = debug
+        super(AmazonDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
+
+    def load_dataset(self, root):
+        path = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
+        if not self.debug:
+            if self.full: text_classification.AmazonReviewFull(ngrams=self.ngrams)
+            else: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
+        else:
+            path += "_debug"
+        return path
 
 
 class IMDBDataset(Dataset):
@@ -131,27 +125,3 @@ class IMDBDataset(Dataset):
 
     def __len__(self):
         return len(self.training)
-
-
-class AmazonDataset(Dataset):
-
-    def __init__(self):
-
-        # words = Field(batch_first=True, eos_token=".", tokenize="spacy")  # validar o eos_token deste dataset
-        training, test = text_classification.AmazonReviewPolarity(ngrams=1, vocab=None)
-        train_len = int(len(training) * 0.90)
-        training, validation = random_split(training, [train_len, len(training) - train_len])
-        # words.build_vocab(training)
-        words = training.get_vocab()
-
-        self.n_classes = len(training.get_labels())
-        self.n_words = len(words)
-        self.padding_value = words.itos.index(words.pad_token)
-        self.end_of_sentence_value = words.vocab.itos.index(words.eos_token)
-        self.training = training
-        self.validation = validation
-        self.test = test
-
-    def __len__(self):
-        return len(self.training)
-
