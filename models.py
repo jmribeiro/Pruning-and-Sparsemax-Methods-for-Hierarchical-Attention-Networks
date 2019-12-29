@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 from torchnlp.nn import Attention
+import torch.nn.functional as F
 
 """
 If three classes turn out to be very similar, 
@@ -51,7 +52,9 @@ class HierarchicalAttentionNetwork(nn.Module):
         self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
 
         self.word_encoder = nn.GRU(embedding_size, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
-        self.word_attention = Attention(hidden_sizes*2) # TODO - Check attention type
+
+        self.word_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
+        self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2)) # TODO -> Check initialization
 
         self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
         self.sentence_attention = Attention(hidden_sizes*2) # TODO - Check attention type
@@ -63,26 +66,32 @@ class HierarchicalAttentionNetwork(nn.Module):
 
     def forward(self, X):
 
-        documents_as_sentences = []
+        sentences = []
 
-        for x in X: # TODO - Can this be vectorized?
+        for x in X: # TODO - Check if this can be vectorized?
 
-            # Sentence batch: L words [SxL]
+            # S x L
             document = self.split_into_sentences(x)
+            S, L = document.shape
 
-            # Sentence batch: L words, E embeddings [SxLxE]
+            # S x L x E
             words = self.embedder(document)
-            word_encodings = self.word_encoder(words)[1]
-            # TODO -> Add word level attention
 
-            # Document: S sentences of 2H gru-units [1xSx2H]
-            sentences = torch.cat((word_encodings[-2], word_encodings[-1]), dim=1)
-            documents_as_sentences.append(sentences)
+            # S x L x 2H
+            hidden, _ = self.word_encoder(words)
+
+            # S x L x 2H
+            hidden_representations = self.word_hidden_representation(hidden)
+
+            # S x L
+            attention_weights = F.softmax(hidden_representations.matmul(self.word_context_vector), dim=1)
+
+            # S x 2H FIXME -> Is there a way to rewrite this using matmul or bmm or ...?
+            sentences.append(torch.stack([torch.stack([attention_weights[i, t] * hidden[i, t] for t in range(L)]).sum(0) for i in range(S)]))
 
         # Documents batch: S sentences, 2H gru-units [BxSx2H]
-        documents_as_sentences = pad_sequence(documents_as_sentences, batch_first=True)
-        sentence_encodings = self.sentence_encoder(documents_as_sentences)[1]
-        # TODO -> Add word level attention
+        sentences = pad_sequence(sentences, batch_first=True)
+        sentence_encodings = self.sentence_encoder(sentences)[1]
 
         # Batch of document "features": 2H gru-units [Bx2H]
         document = torch.cat((sentence_encodings[-2], sentence_encodings[-1]), dim=1)
