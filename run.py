@@ -21,6 +21,7 @@ def train_batch(batch, model, optimizer, criterion):
     X = batch.text.to(model.device)
     y = batch.label.to(model.device)
 
+
     optimizer.zero_grad()
     model.train()
 
