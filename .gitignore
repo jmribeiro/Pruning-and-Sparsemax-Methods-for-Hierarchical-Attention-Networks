@@ -138,7 +138,7 @@ dmypy.json
 # Torch Text Datasets
 .data/*
 !.data/.gitkeep
-!.data/yelp_review_full_csv_debug
+!.data/*_debug
 
 # Torch Text Word Vectors
 .word_vectors_cache
