@@ -1,5 +1,4 @@
-torch
 matplotlib
 tqdm
 torchtext
-pytorch-nlp
+spacy
