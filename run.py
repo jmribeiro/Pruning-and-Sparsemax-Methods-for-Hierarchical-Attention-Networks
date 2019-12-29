@@ -110,19 +110,10 @@ if __name__ == '__main__':
     # 1 - Load Data #
     # ############# #
 
-    # Setting  root path
-    path = os.path.dirname(os.path.realpath(__file__))
-
-    if not os.path.exists(path + '/data/'):
-        os.system('mkdir data')
-    path = path + '/data/'
-    print(f"*** Root folder [{path}]  ***\n", end="", flush=True)
-    print("------------------------------------\n", flush=True)
-
     if not opt.quiet:
         print(f"*** Loading {opt.dataset} dataset ***\n", end="", flush=True)
 
-    if opt.dataset == "yelpRF": dataset = YelpReviewFullDataset(path)
+    if opt.dataset == "yelpRF": dataset = YelpReviewFullDataset()
     elif opt.dataset == "yelp14": dataset = Yelp14Dataset()
     elif opt.dataset == "yelp15": dataset = Yelp15Dataset()
     elif opt.dataset == "yahoo": dataset = YahooDataset()

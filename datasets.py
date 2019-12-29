@@ -8,7 +8,7 @@ from torchtext.datasets import text_classification
 
 
 class YelpReviewFullDataset(Dataset):
-    def __init__(self, path):
+    def __init__(self):
         """
         Training & Validation
         1. dataset
@@ -22,7 +22,7 @@ class YelpReviewFullDataset(Dataset):
             get_labels() [0...4]
             _data
         """
-        train_dataset, test_dataset = text_classification.YelpReviewFull(ngrams=3, root=path)
+        train_dataset, test_dataset = text_classification.YelpReviewFull(ngrams=3, root=".data")
 
         train_len = int(len(train_dataset) * .9)
         train_dataset, validation_dataset = random_split(train_dataset, [train_len, len(train_dataset) - train_len])
