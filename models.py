@@ -93,6 +93,10 @@ class HierarchicalAttentionNetwork(nn.Module):
         return scores
 
     def split_into_sentences(self, document):
+        """
+            Given a document as sequence (shape L1: total length)
+            Returns a document as sentences (shape SxL2)
+        """
         ends_of_sentence = (document == self.end_of_sentence_value).nonzero()
         sentences = [document[0:eos + 1] if i == 0 else document[ends_of_sentence[i - 1] + 1:eos + 1] for i, eos in enumerate(ends_of_sentence)]
         sentences.append(document[ends_of_sentence[-1] + 1:])
