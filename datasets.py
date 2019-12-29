@@ -52,15 +52,15 @@ class BaseDataset(Dataset):
 
 class YelpDataset(BaseDataset):
 
-    def __init__(self, full=True, ngrams=3, small=False):
+    def __init__(self, full=True, ngrams=3, debug=False):
         self.full = full
         self.ngrams = ngrams
-        self.small = small
+        self.debug = debug
         super(YelpDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/yelp_review_full_csv" if self.full else ".data/yelp_review_polarity_csv"
-        if not self.small:
+        if not self.debug:
             if self.full: text_classification.YelpReviewFull(ngrams=self.ngrams, root=root)
             else: text_classification.YelpReviewPolarity(ngrams=self.ngrams, root=root)
         else:
@@ -70,29 +70,29 @@ class YelpDataset(BaseDataset):
 
 class YahooDataset(BaseDataset):
 
-    def __init__(self, ngrams=5, small=False):
+    def __init__(self, ngrams=5, debug=False):
         self.ngrams = ngrams
-        self.small = small
+        self.debug = debug
         super(YahooDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/yahoo_answers_csv"
-        if not self.small: text_classification.YahooAnswers(ngrams=self.ngrams)
+        if not self.debug: text_classification.YahooAnswers(ngrams=self.ngrams)
         else: path += "_debug"
         return path
 
 
 class AmazonDataset(BaseDataset):
 
-    def __init__(self, full=True, ngrams=5, small=False):
+    def __init__(self, full=True, ngrams=5, debug=False):
         self.full = full
         self.ngrams = ngrams
-        self.small = small
+        self.debug = debug
         super(AmazonDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
-        if not self.small:
+        if not self.debug:
             if self.full: text_classification.AmazonReviewFull(ngrams=self.ngrams)
             else: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
         else:
