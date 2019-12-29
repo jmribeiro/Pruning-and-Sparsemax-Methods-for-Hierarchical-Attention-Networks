@@ -20,7 +20,7 @@ class LSTMClassifier(nn.Module):
         super().__init__()
 
         self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
-        self.bilstm = nn.LSTM(embedding_size, hidden_sizes, layers, dropout=dropout, batch_first=True, bidirectional=bidirectional)
+        self.lstm = nn.LSTM(embedding_size, hidden_sizes, layers, dropout=dropout, batch_first=True, bidirectional=bidirectional)
         if bidirectional: hidden_sizes *= 2
         self.bidirectional = bidirectional
         self.hidden_to_label = nn.Linear(hidden_sizes, n_classes)
@@ -30,7 +30,7 @@ class LSTMClassifier(nn.Module):
 
     def forward(self, X):
         embeddings = self.embedder(X)
-        _, (hidden, _) = self.bilstm(embeddings)
+        _, (hidden, _) = self.lstm(embeddings)
         hidden_last = torch.cat((hidden[-2], hidden[-1]), dim=1) if self.bidirectional else hidden[-1]
         scores = self.hidden_to_label(hidden_last)
         return scores
@@ -40,12 +40,12 @@ class HierarchicalAttentionNetwork(nn.Module):
 
     """ Original model from https://www.cs.cmu.edu/~./hovy/papers/16HLT-hierarchical-attention-networks.pdf"""
 
-    def __init__(self, n_classes, n_words, embedding_size, hidden_sizes, layers, dropout, padding_value, eos_value, device):
+    def __init__(self, n_classes, n_words, embedding_size, layers, hidden_sizes, dropout, padding_value, eos_value, device):
 
         super(HierarchicalAttentionNetwork, self).__init__()
 
         self.padding_value = padding_value
-        self.eos_value = eos_value
+        self.end_of_sentence_value = eos_value
 
         # TODO -> Load pretrained Word2Vec
         self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
@@ -61,14 +61,37 @@ class HierarchicalAttentionNetwork(nn.Module):
         self.device = device
         self.to(device)
 
-    def forward(self, documents):
-        word_embeddings = self.embedder(documents)
-        # TODO
-        scores = None
+    def forward(self, X):
+
+        documents_as_sentences = []
+
+        for x in X: # TODO - Can this be vectorized?
+
+            # Sentence batch: L words [SxL]
+            document = self.split_into_sentences(x)
+
+            # Sentence batch: L words, E embeddings [SxLxE]
+            words = self.embedder(document)
+            word_encodings = self.word_encoder(words)[1]
+
+            # Document: S sentences of 2H gru-units [1xSx2H]
+            sentences = torch.cat((word_encodings[-2], word_encodings[-1]), dim=1)
+            documents_as_sentences.append(sentences)
+
+        # Documents batch: S sentences, 2H gru-units [BxSx2H]
+        documents_as_sentences = pad_sequence(documents_as_sentences, batch_first=True)
+        sentence_encodings = self.sentence_encoder(documents_as_sentences)[1]
+
+        # Batch of document "features": 2H gru-units [Bx2H]
+        document = torch.cat((sentence_encodings[-2], sentence_encodings[-1]), dim=1)
+
+        # Batch of document "scores": num_classes outputs [BxK]
+        scores = self.hidden_to_label(document)
+
         return scores
 
     def split_into_sentences(self, document):
-        ends_of_sentence = (document == self.eos_value).nonzero()
+        ends_of_sentence = (document == self.end_of_sentence_value).nonzero()
         sentences = [document[0:eos + 1] if i == 0 else document[ends_of_sentence[i - 1] + 1:eos + 1] for i, eos in enumerate(ends_of_sentence)]
         sentences.append(document[ends_of_sentence[-1] + 1:])
         document = pad_sequence(sentences, batch_first=True, padding_value=self.padding_value)
