@@ -111,7 +111,7 @@ if __name__ == '__main__':
     # ############# #
 
     if not opt.quiet:
-        print(f"*** Loading {opt.dataset} dataset ***\n", end="", flush=True)
+        print(f"*** Loading {opt.dataset} dataset ***", end="", flush=True)
 
     if opt.dataset == "yelpRF": dataset = YelpReviewFullDataset()
     elif opt.dataset == "yelp14": dataset = Yelp14Dataset()
@@ -121,8 +121,7 @@ if __name__ == '__main__':
     elif opt.dataset == "amazon": dataset = AmazonDataset()
     else: dataset = None  # Unreachable code
 
-    trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test),
-                                                               batch_size=opt.batch_size)
+    trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test), batch_size=opt.batch_size)
 
     if not opt.quiet: print(" (Done)", flush=True)
 
