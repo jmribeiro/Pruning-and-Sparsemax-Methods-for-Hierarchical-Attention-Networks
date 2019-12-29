@@ -93,7 +93,7 @@ class AmazonDataset(BaseDataset):
     def load_dataset(self, root):
         path = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
         if not self.small:
-            if self.full: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
+            if self.full: text_classification.AmazonReviewFull(ngrams=self.ngrams)
             else: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
         else:
             path += "_debug"
