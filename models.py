@@ -100,6 +100,7 @@ class HierarchicalAttentionNetwork(nn.Module):
         ends_of_sentence = (document == self.end_of_sentence_value).nonzero()
         sentences = [document[0:eos + 1] if i == 0 else document[ends_of_sentence[i - 1] + 1:eos + 1] for i, eos in enumerate(ends_of_sentence)]
         sentences.append(document[ends_of_sentence[-1] + 1:])
+        #TODO - Check last sentence for non pad values
         document = pad_sequence(sentences, batch_first=True, padding_value=self.padding_value)
         return document
 
