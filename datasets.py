@@ -52,39 +52,52 @@ class BaseDataset(Dataset):
 
 class YelpDataset(BaseDataset):
 
-    def __init__(self, full=True, ngrams=3):
+    def __init__(self, full=True, ngrams=3, small=False):
         self.full = full
         self.ngrams = ngrams
+        self.small = small
         super(YelpDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
-        if self.full: text_classification.YelpReviewFull(ngrams=self.ngrams, root=root)
-        else: text_classification.YelpReviewPolarity(ngrams=self.ngrams, root=root)
-        return '.data/yelp_review_full_csv'
+        path = ".data/yelp_review_full_csv" if self.full else ".data/yelp_review_polarity_csv"
+        if not self.small:
+            if self.full: text_classification.YelpReviewFull(ngrams=self.ngrams, root=root)
+            else: text_classification.YelpReviewPolarity(ngrams=self.ngrams, root=root)
+        else:
+            path += "_debug"
+        return path
 
 
 class YahooDataset(BaseDataset):
 
-    def __init__(self, ngrams=5):
+    def __init__(self, ngrams=5, small=False):
         self.ngrams = ngrams
+        self.small = small
         super(YahooDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
-        text_classification.YahooAnswers(ngrams=self.ngrams)
-        return '.data/yelp_review_full_csv' # FIXME -> Correct to right directory
+        path = ".data/yahoo_answers_csv"
+        if not self.small: text_classification.YahooAnswers(ngrams=self.ngrams)
+        else: path += "_debug"
+        return path
 
 
-class AmazonDataset(Dataset):
+class AmazonDataset(BaseDataset):
 
-    def __init__(self, full=True, ngrams=5):
+    def __init__(self, full=True, ngrams=5, small=False):
         self.full = full
         self.ngrams = ngrams
+        self.small = small
         super(AmazonDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
-        if self.full: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
-        else: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
-        return '.data/yelp_review_full_csv' # FIXME -> Correct to right directory
+        path = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
+        if not self.small:
+            if self.full: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
+            else: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
+        else:
+            path += "_debug"
+        return path
 
 
 class IMDBDataset(Dataset):
@@ -112,14 +125,3 @@ class IMDBDataset(Dataset):
 
     def __len__(self):
         return len(self.training)
-
-
-class YelpDebugDataset(BaseDataset):
-
-    def __init__(self, full=True, ngrams=3):
-        self.full = full
-        self.ngrams = ngrams
-        super(YelpDebugDataset, self).__init__(val_ratio=0.10)  # TODO - Confirm correct val ratio
-
-    def load_dataset(self, root):
-        return '.data/yelp_review_full_csv_debug'
