@@ -111,7 +111,11 @@ if __name__ == '__main__':
     # ############# #
 
     # Setting  root path
-    path = os.path.dirname(os.path.realpath(__file__)) + '/data/'
+    path = os.path.dirname(os.path.realpath(__file__))
+
+    if not os.path.exists(path + '/data/'):
+        os.system('mkdir data')
+    path = path + '/data/'
     print(f"*** Root folder [{path}]  ***\n", end="", flush=True)
     print("------------------------------------\n", flush=True)
 
