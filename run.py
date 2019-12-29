@@ -8,7 +8,7 @@ from torch import nn
 from torchtext.data import BucketIterator
 from tqdm import tqdm
 
-from datasets import YelpReviewFullDataset, Yelp14Dataset, Yelp15Dataset, YahooDataset, IMDBDataset, AmazonDataset
+from datasets import YelpDataset, YahooDataset, IMDBDataset, AmazonDataset, YelpDebugDataset
 from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier
 
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     # Main arguments
     parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm'], help="Which model should the script run?")
-    parser.add_argument('dataset', choices=['yelpRF', 'yelp14', 'yelp15', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
+    parser.add_argument('dataset', choices=['yelp_debug', 'yelp', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
     parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=200)
@@ -113,15 +113,14 @@ if __name__ == '__main__':
     if not opt.quiet:
         print(f"*** Loading {opt.dataset} dataset ***", end="", flush=True)
 
-    if opt.dataset == "yelpRF": dataset = YelpReviewFullDataset()
-    elif opt.dataset == "yelp14": dataset = Yelp14Dataset()
-    elif opt.dataset == "yelp15": dataset = Yelp15Dataset()
+    if opt.dataset == "yelp": dataset = YelpDataset()
     elif opt.dataset == "yahoo": dataset = YahooDataset()
     elif opt.dataset == "imdb": dataset = IMDBDataset()
     elif opt.dataset == "amazon": dataset = AmazonDataset()
+    elif opt.dataset == "yelp_debug": dataset = YelpDebugDataset()
     else: dataset = None  # Unreachable code
 
-    trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test), batch_size=opt.batch_size)
+    trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test), batch_size=opt.batch_size, sort_key=dataset.sort_key)
 
     if not opt.quiet: print(" (Done)", flush=True)
 
