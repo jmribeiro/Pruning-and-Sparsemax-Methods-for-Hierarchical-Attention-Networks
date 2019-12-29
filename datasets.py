@@ -63,7 +63,7 @@ class Yelp15Dataset(Dataset):
     def __init__(self):
 
         # words = Field(batch_first=True, eos_token=".", tokenize="spacy") # validar o eos_token deste dataset
-        training, test = text_classification.YelpReviewPolarity(ngrams=1)
+        training, test = text_classification.YelpReviewPolarity(ngrams=1, vocab=None)
         train_len = int(len(training) * 0.90)
         training, validation = random_split(training, [train_len, len(training) - train_len])
         # words.build_vocab(training)
@@ -95,9 +95,9 @@ class YahooDataset(Dataset):
         words = training.get_vocab()
 
         self.n_classes = len(training.get_labels())
-        self.n_words = len(words)
-        self.padding_value = words.itos.index(words.pad_token)
-        self.end_of_sentence_value = words.vocab.itos.index(words.eos_token)
+        self.n_words = len(training.get_vocab())
+        self.padding_value = training.get_vocab().itos.index(words.pad_token)
+        self.end_of_sentence_value = training.get_vocab().itos.index(words.eos_token)
         self.training = training
         self.validation = validation
         self.test = test
@@ -138,7 +138,7 @@ class AmazonDataset(Dataset):
     def __init__(self):
 
         # words = Field(batch_first=True, eos_token=".", tokenize="spacy")  # validar o eos_token deste dataset
-        training, test = text_classification.AmazonReviewPolarity(ngrams=1)
+        training, test = text_classification.AmazonReviewPolarity(ngrams=1, vocab=None)
         train_len = int(len(training) * 0.90)
         training, validation = random_split(training, [train_len, len(training) - train_len])
         # words.build_vocab(training)
