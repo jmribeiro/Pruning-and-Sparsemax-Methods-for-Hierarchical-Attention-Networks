@@ -122,6 +122,4 @@ class YelpDebugDataset(BaseDataset):
         super(YelpDebugDataset, self).__init__(val_ratio=0.10)  # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
-        if self.full: text_classification.YelpReviewFull(ngrams=self.ngrams, root=root)
-        else: text_classification.YelpReviewPolarity(ngrams=self.ngrams, root=root)
         return '.data/yelp_review_full_csv_debug'
