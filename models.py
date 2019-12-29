@@ -73,6 +73,7 @@ class HierarchicalAttentionNetwork(nn.Module):
             # Sentence batch: L words, E embeddings [SxLxE]
             words = self.embedder(document)
             word_encodings = self.word_encoder(words)[1]
+            # TODO -> Add word level attention
 
             # Document: S sentences of 2H gru-units [1xSx2H]
             sentences = torch.cat((word_encodings[-2], word_encodings[-1]), dim=1)
@@ -81,6 +82,7 @@ class HierarchicalAttentionNetwork(nn.Module):
         # Documents batch: S sentences, 2H gru-units [BxSx2H]
         documents_as_sentences = pad_sequence(documents_as_sentences, batch_first=True)
         sentence_encodings = self.sentence_encoder(documents_as_sentences)[1]
+        # TODO -> Add word level attention
 
         # Batch of document "features": 2H gru-units [Bx2H]
         document = torch.cat((sentence_encodings[-2], sentence_encodings[-1]), dim=1)
