@@ -8,7 +8,7 @@ from torch import nn
 from torchtext.data import BucketIterator
 from tqdm import tqdm
 
-from datasets import YelpReviewFullDataset, Yelp14Dataset, Yelp15Dataset, YahooDataset, IMDBDataset, AmazonDataset
+from datasets import YelpReviewFullDataset, Yelp14Dataset, Yelp15Dataset, YahooDataset, IMDBDataset, AmazonDataset, YelpReviewPolarity
 from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier
 
 
