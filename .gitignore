@@ -142,4 +142,4 @@ dmypy.json
 
 # Torch Text Word Vectors
 .word_vectors_cache
-.vectors_cache
+.vector_cache

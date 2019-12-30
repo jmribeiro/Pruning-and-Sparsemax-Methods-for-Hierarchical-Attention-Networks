@@ -2,3 +2,4 @@ matplotlib
 tqdm
 torchtext
 spacy
+pathlib
