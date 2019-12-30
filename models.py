@@ -1,13 +1,25 @@
 import torch
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
-from torchnlp.nn import Attention
 import torch.nn.functional as F
 
 """
 If three classes turn out to be very similar, 
 we refactor their code in the end
 """
+
+
+def split_into_sentences(document, padding_value, eos_value):
+    """
+        Given a document as sequence (shape L1: total length)
+        Returns a document as sentences (shape SxL2)
+    """
+    ends_of_sentence = (document == eos_value).nonzero()
+    sentences = [document[0:eos + 1] if i == 0 else document[ends_of_sentence[i - 1] + 1:eos + 1] for i, eos in enumerate(ends_of_sentence)]
+    sentences.append(document[ends_of_sentence[-1] + 1:])
+    # TODO - Check last sentence for non pad values
+    document = pad_sequence(sentences, batch_first=True, padding_value=padding_value)
+    return document
 
 
 class LSTMClassifier(nn.Module):
@@ -67,7 +79,7 @@ class HierarchicalNetwork(nn.Module):
         for x in X: # TODO - Can this be vectorized?
 
             # Sentence batch: L words [SxL]
-            document = self.split_into_sentences(x)
+            document = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
 
             # Sentence batch: L words, E embeddings [SxLxE]
             words = self.embedder(document)
@@ -89,17 +101,6 @@ class HierarchicalNetwork(nn.Module):
 
         return scores
 
-    def split_into_sentences(self, document):
-        """
-            Given a document as sequence (shape L1: total length)
-            Returns a document as sentences (shape SxL2)
-        """
-        ends_of_sentence = (document == self.end_of_sentence_value).nonzero()
-        sentences = [document[0:eos + 1] if i == 0 else document[ends_of_sentence[i - 1] + 1:eos + 1] for i, eos in enumerate(ends_of_sentence)]
-        sentences.append(document[ends_of_sentence[-1] + 1:])
-        document = pad_sequence(sentences, batch_first=True, padding_value=self.padding_value)
-        return document
-
 
 class HierarchicalAttentionNetwork(nn.Module):
 
@@ -118,12 +119,14 @@ class HierarchicalAttentionNetwork(nn.Module):
         self.word_encoder = nn.GRU(embedding_size, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
 
         self.word_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
-        self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2)) # TODO -> Check initialization
+        self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
+        self.word_context_vector.data.uniform_(-1, 1)
 
         self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
 
         self.sentence_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
-        self.sentence_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))  # TODO -> Check initialization
+        self.sentence_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
+        self.sentence_context_vector.data.uniform_(-1, 1)
 
         self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
 
@@ -137,8 +140,7 @@ class HierarchicalAttentionNetwork(nn.Module):
         for x in X: # TODO - Check if this can be vectorized?
 
             # S x L
-            document = self.split_into_sentences(x)
-            S, L = document.shape
+            document = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
 
             # S x L x E
             words = self.embedder(document)
@@ -150,7 +152,7 @@ class HierarchicalAttentionNetwork(nn.Module):
             hidden_representations = self.word_hidden_representation(hidden)
 
             # S x L
-            attention_weights = F.softmax(hidden_representations.matmul(self.word_context_vector), dim=1)
+            attention_weights = F.softmax(hidden_representations @ self.word_context_vector, dim=1)
             attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
             # S x 2H
@@ -176,32 +178,88 @@ class HierarchicalAttentionNetwork(nn.Module):
 
         return scores
 
-    def split_into_sentences(self, document):
-        """
-            Given a document as sequence (shape L1: total length)
-            Returns a document as sentences (shape SxL2)
-        """
-        ends_of_sentence = (document == self.end_of_sentence_value).nonzero()
-        sentences = [document[0:eos + 1] if i == 0 else document[ends_of_sentence[i - 1] + 1:eos + 1] for i, eos in enumerate(ends_of_sentence)]
-        sentences.append(document[ends_of_sentence[-1] + 1:])
-        #TODO - Check last sentence for non pad values
-        document = pad_sequence(sentences, batch_first=True, padding_value=self.padding_value)
-        return document
-
 
 class PrunedHierarchicalAttentionNetwork(nn.Module):
 
-    # TODO
+    def __init__(self, n_classes, n_words, attention_threshold, embedding_size, layers, hidden_sizes, dropout, padding_value, eos_value, device):
 
-    def __init__(self, device):
         super(PrunedHierarchicalAttentionNetwork, self).__init__()
+
+        self.padding_value = padding_value
+        self.end_of_sentence_value = eos_value
+        self.attention_threshold = attention_threshold
+
+        # TODO -> Load pretrained Word2Vec
+        self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
+
+        self.word_encoder = nn.GRU(embedding_size, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
+
+        self.word_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
+        self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
+        self.word_context_vector.data.uniform_(-1, 1)
+
+        self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
+
+        self.sentence_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
+        self.sentence_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
+        self.sentence_context_vector.data.uniform_(-1, 1)
+
+        self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
+
         self.device = device
         self.to(device)
 
     def forward(self, X):
-        # TODO
-        scores = None
+
+        sentences = []
+
+        for x in X: # TODO - Check if this can be vectorized?
+
+            # S x L
+            document = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
+
+            # S x L x E
+            words = self.embedder(document)
+
+            # S x L x 2H
+            hidden, _ = self.word_encoder(words)
+
+            # S x L x 2H
+            hidden_representations = self.word_hidden_representation(hidden)
+
+            # S x L
+            attention_weights = F.softmax(hidden_representations @ self.word_context_vector, dim=1)
+            pruned_attention_weights = self.prune_attentions(attention_weights)
+
+            # S x 2H
+            sentences.append((pruned_attention_weights @ hidden).squeeze(dim=1))
+
+        # B x S x 2H]
+        sentences = pad_sequence(sentences, batch_first=True)
+
+        # B x S x 2H
+        hidden, _ = self.sentence_encoder(sentences)
+
+        # B x S x 2H
+        hidden_representations = self.sentence_hidden_representation(hidden)
+
+        # B x S
+        attention_weights = F.softmax(hidden_representations @ self.sentence_context_vector, dim=1)
+        pruned_attention_weights = self.prune_attentions(attention_weights)
+        document = (pruned_attention_weights @ hidden).squeeze(dim=1)
+
+        # Batch of document "scores": num_classes outputs [BxK]
+        scores = self.hidden_to_label(document)
+
         return scores
+
+    def prune_attentions(self, attention_weights):
+        pruned_attention_weights = (attention_weights < self.attention_threshold) * attention_weights
+        sums = pruned_attention_weights.sum(dim=1).reshape(attention_weights.shape[0], 1)
+        new_attention_weights = pruned_attention_weights / sums
+        new_attention_weights[torch.isnan(new_attention_weights)] = 0.0
+        new_attention_weights = new_attention_weights.reshape(new_attention_weights.shape[0], 1, new_attention_weights.shape[1])
+        return new_attention_weights
 
 
 class HierarchicalSparsemaxAttentionNetwork(nn.Module):
