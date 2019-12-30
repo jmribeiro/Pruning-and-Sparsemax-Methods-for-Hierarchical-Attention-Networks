@@ -252,7 +252,7 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
         return scores
 
     def prune_attentions(self, attention_weights):
-        pruned_attention_weights = (attention_weights < self.attention_threshold) * attention_weights
+        pruned_attention_weights = (attention_weights < self.attention_threshold).float() * attention_weights
         sums = pruned_attention_weights.sum(dim=1).reshape(attention_weights.shape[0], 1)
         new_attention_weights = pruned_attention_weights / sums
         new_attention_weights[torch.isnan(new_attention_weights)] = 0.0
