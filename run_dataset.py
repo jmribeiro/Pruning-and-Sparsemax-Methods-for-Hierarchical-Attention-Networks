@@ -191,6 +191,7 @@ if __name__ == '__main__':
     runid = getrandbits(64)
     for model in models:
         train_mean_losses, valid_accs, final_test_accuracy = train(model, dataset, opt)
+        results[model] = train_mean_losses, valid_accs, final_test_accuracy
         root = f"results/{opt.dataset}/{model}"
         pathlib.Path(root).mkdir(parents=True, exist_ok=True)
         with open(f"{root}/final_test_accuracy_{runid}.txt", "w") as text_file: text_file.write(f"{final_test_accuracy}")
