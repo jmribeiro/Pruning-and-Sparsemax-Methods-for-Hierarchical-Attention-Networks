@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
+from sparseMax import SparseMax
 
 """
 If three classes turn out to be very similar, 
@@ -262,14 +263,78 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
 
 class HierarchicalSparsemaxAttentionNetwork(nn.Module):
 
-    # TODO
-
-    def __init__(self, device):
+    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device):
         super(HierarchicalSparsemaxAttentionNetwork, self).__init__()
+
+        self.padding_value = padding_value
+        self.end_of_sentence_value = eos_value
+
+        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(
+            embeddings,
+            padding_idx=padding_value)
+
+        self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True,
+                                   dropout=dropout)
+
+        self.word_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
+        self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
+        self.word_context_vector.data.uniform_(-1, 1)
+
+        self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True,
+                                       dropout=dropout)
+
+        self.sentence_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
+        self.sentence_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
+        self.sentence_context_vector.data.uniform_(-1, 1)
+
+        self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
+
         self.device = device
         self.to(device)
 
     def forward(self, X):
-        # TODO
-        scores = None
+        sentences = []
+
+        for x in X:  # TODO - Check if this can be vectorized?
+
+            # S x L
+            document = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
+
+            # S x L x E
+            words = self.embedder(document)
+
+            # S x L x 2H
+            hidden, _ = self.word_encoder(words)
+
+            # S x L x 2H
+            hidden_representations = self.word_hidden_representation(hidden)
+
+            # S x L
+            # attention_weights = F.softmax(hidden_representations @ self.word_context_vector, dim=1)
+            attention_weights = SparseMax.apply((hidden_representations @ self.word_context_vector), 1, None)
+
+            attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
+
+            # S x 2H
+            sentences.append((attention_weights @ hidden).squeeze(dim=1))
+
+        # B x S x 2H]
+        sentences = pad_sequence(sentences, batch_first=True)
+
+        # B x S x 2H
+        hidden, _ = self.sentence_encoder(sentences)
+
+        # B x S x 2H
+        hidden_representations = self.sentence_hidden_representation(hidden)
+
+        # B x S
+        attention_weights = SparseMax.apply(hidden_representations.matmul(self.sentence_context_vector), 1, None)
+        # attention_weights = F.softmax(hidden_representations.matmul(self.sentence_context_vector), dim=1)
+        attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
+
+        document = (attention_weights @ hidden).squeeze(dim=1)
+
+        # Batch of document "scores": num_classes outputs [BxK]
+        scores = self.hidden_to_label(document)
+
         return scores
