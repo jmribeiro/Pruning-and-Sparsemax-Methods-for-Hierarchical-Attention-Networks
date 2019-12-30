@@ -151,13 +151,14 @@ class HierarchicalAttentionNetwork(nn.Module):
 
             # S x L
             attention_weights = F.softmax(hidden_representations.matmul(self.word_context_vector), dim=1)
+            attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
-            # S x 2H FIXME -> Is there a way to rewrite this using matmul or bmm or ...?
-            sentences.append(torch.stack([torch.stack([attention_weights[i, t] * hidden[i, t] for t in range(L)]).sum(0) for i in range(S)]))
+            # S x 2H
+            sentences.append((attention_weights @ hidden).squeeze(dim=1))
 
-        # Documents batch: S sentences, 2H gru-units [BxSx2H]
+        # B x S x 2H]
         sentences = pad_sequence(sentences, batch_first=True)
-        #sentence_encodings = self.sentence_encoder(sentences)[1]
+
         # B x S x 2H
         hidden, _ = self.sentence_encoder(sentences)
 
@@ -166,12 +167,9 @@ class HierarchicalAttentionNetwork(nn.Module):
 
         # B x S
         attention_weights = F.softmax(hidden_representations.matmul(self.sentence_context_vector), dim=1)
+        attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
-        # Batch of document "features": 2H gru-units [Bx2H]
-        # document = torch.cat((sentence_encodings[-2], sentence_encodings[-1]), dim=1)
-        B = X.shape[0]
-        document = torch.stack(
-            [torch.stack([attention_weights[i, t] * hidden[i, t] for t in range(S)]).sum(0) for i in range(B)])
+        document = (attention_weights @ hidden).squeeze(dim=1)
 
         # Batch of document "scores": num_classes outputs [BxK]
         scores = self.hidden_to_label(document)
