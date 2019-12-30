@@ -52,7 +52,7 @@ class BaseDataset(Dataset):
 
 class YelpDataset(BaseDataset):
 
-    def __init__(self, full=True, ngrams=3, debug=False):
+    def __init__(self, ngrams, full=True, debug=False):
         self.full = full
         self.ngrams = ngrams
         self.debug = debug
@@ -70,7 +70,7 @@ class YelpDataset(BaseDataset):
 
 class YahooDataset(BaseDataset):
 
-    def __init__(self, ngrams=5, debug=False):
+    def __init__(self, ngrams, debug=False):
         self.ngrams = ngrams
         self.debug = debug
         super(YahooDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
@@ -84,7 +84,7 @@ class YahooDataset(BaseDataset):
 
 class AmazonDataset(BaseDataset):
 
-    def __init__(self, full=True, ngrams=5, debug=False):
+    def __init__(self, ngrams, full=True, debug=False):
         self.full = full
         self.ngrams = ngrams
         self.debug = debug

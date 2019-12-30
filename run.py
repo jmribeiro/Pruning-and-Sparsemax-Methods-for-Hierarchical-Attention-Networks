@@ -95,6 +95,7 @@ if __name__ == '__main__':
 
     # Miscellaneous
     parser.add_argument('-polarity', action='store_true', help="Positive/Negative labels for datasets.")
+    parser.add_argument('-ngrams', type=int, help="N value for the datasets N-Grams.", default=1)
     parser.add_argument('-debug', action='store_true', help="Datasets pruned into smaller sizes for faster loading.")
     parser.add_argument('-quiet', action='store_true', help='No execution output.')
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
@@ -115,10 +116,10 @@ if __name__ == '__main__':
     if not opt.quiet:
         print(f"*** Loading {opt.dataset} dataset{f' [small size / debug mode]' if opt.debug else ''} ***", end="", flush=True)
 
-    if opt.dataset == "yelp": dataset = YelpDataset(full=not opt.polarity, debug=opt.debug)
-    elif opt.dataset == "yahoo": dataset = YahooDataset(debug=opt.debug)
+    if opt.dataset == "yelp": dataset = YelpDataset(full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
+    elif opt.dataset == "yahoo": dataset = YahooDataset(ngrams=opt.ngrams, debug=opt.debug)
     elif opt.dataset == "imdb": dataset = IMDBDataset()
-    elif opt.dataset == "amazon": dataset = AmazonDataset(full=not opt.polarity, debug=opt.debug)
+    elif opt.dataset == "amazon": dataset = AmazonDataset(full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
     else: dataset = None  # Unreachable code
 
     trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test), batch_size=opt.batch_size, sort_key=dataset.sort_key)

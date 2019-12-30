@@ -57,7 +57,9 @@ class HierarchicalAttentionNetwork(nn.Module):
         self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2)) # TODO -> Check initialization
 
         self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
-        self.sentence_attention = Attention(hidden_sizes*2) # TODO - Check attention type
+
+        self.sentence_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
+        self.sentence_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))  # TODO -> Check initialization
 
         self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
 
@@ -91,10 +93,21 @@ class HierarchicalAttentionNetwork(nn.Module):
 
         # Documents batch: S sentences, 2H gru-units [BxSx2H]
         sentences = pad_sequence(sentences, batch_first=True)
-        sentence_encodings = self.sentence_encoder(sentences)[1]
+        #sentence_encodings = self.sentence_encoder(sentences)[1]
+        # B x S x 2H
+        hidden, _ = self.sentence_encoder(sentences)
+
+        # B x S x 2H
+        hidden_representations = self.sentence_hidden_representation(hidden)
+
+        # B x S
+        attention_weights = F.softmax(hidden_representations.matmul(self.sentence_context_vector), dim=1)
 
         # Batch of document "features": 2H gru-units [Bx2H]
-        document = torch.cat((sentence_encodings[-2], sentence_encodings[-1]), dim=1)
+        # document = torch.cat((sentence_encodings[-2], sentence_encodings[-1]), dim=1)
+        B = X.shape[0]
+        document = torch.stack(
+            [torch.stack([attention_weights[i, t] * hidden[i, t] for t in range(S)]).sum(0) for i in range(B)])
 
         # Batch of document "scores": num_classes outputs [BxK]
         scores = self.hidden_to_label(document)
