@@ -114,7 +114,6 @@ class IMDBDataset(Dataset):
         words.build_vocab(training)
         labels.build_vocab(training)
 
-        print(training.examples[0])
         self.n_classes = len(labels.vocab)
         self.n_words = len(words.vocab)
         self.padding_value = words.vocab.itos.index(words.pad_token)
@@ -122,6 +121,7 @@ class IMDBDataset(Dataset):
         self.training = training
         self.validation = validation
         self.test = test
+        self.sort_key = lambda example: example.text
 
     def __len__(self):
         return len(self.training)

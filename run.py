@@ -9,7 +9,7 @@ from torchtext.data import BucketIterator
 from tqdm import tqdm
 
 from datasets import YelpDataset, YahooDataset, IMDBDataset, AmazonDataset
-from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier
+from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier, HierarchicalNetwork
 
 
 # #################### #
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Main arguments
-    parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm'], help="Which model should the script run?")
+    parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm', 'hn'], help="Which model should the script run?")
     parser.add_argument('dataset', choices=['yelp', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
@@ -138,6 +138,7 @@ if __name__ == '__main__':
     elif opt.model == "phan": model = PrunedHierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
     elif opt.model == "hsan": model = PrunedHierarchicalAttentionNetwork(device) # FIXME - Proper arguments when done
     elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, opt.embeddings_size, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
+    elif opt.model == "hn": model = HierarchicalNetwork(dataset.n_classes, dataset.n_words, opt.embeddings_size, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device) # FIXME - Proper arguments when done
     else: dataset = None  # Unreachable code
 
     if not opt.quiet: print(" (Done)", flush=True)
