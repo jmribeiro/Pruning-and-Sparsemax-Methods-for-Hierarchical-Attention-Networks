@@ -6,11 +6,12 @@ from torchtext import datasets
 from torchtext.data import Field, LabelField, TabularDataset
 from torch.utils.data.dataset import random_split
 from torchtext.datasets import text_classification
+from torchtext.vocab import GloVe
 
 
 class BaseDataset(Dataset):
 
-    def __init__(self, val_ratio):
+    def __init__(self, val_ratio, embeddings_size, word2vec="6B"):
 
         words = Field(batch_first=True, eos_token=".", tokenize="spacy")
         labels = LabelField(dtype=torch.long)
@@ -19,7 +20,7 @@ class BaseDataset(Dataset):
         training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv', fields=[('label', labels), ('text', words)])
 
         # Vocabs
-        words.build_vocab(training)
+        words.build_vocab(training, vectors=GloVe(name=word2vec, dim=embeddings_size))
         labels.build_vocab(training)
 
         # Validation Split
@@ -41,6 +42,7 @@ class BaseDataset(Dataset):
         self.padding_value = words.vocab.itos.index(words.pad_token)
         self.end_of_sentence_value = words.vocab.itos.index(words.eos_token)
         self.sort_key = lambda example: example.text
+        self.word2vec = words.vocab.vectors
 
     @abstractmethod
     def load_dataset(self, root):
@@ -52,11 +54,11 @@ class BaseDataset(Dataset):
 
 class YelpDataset(BaseDataset):
 
-    def __init__(self, ngrams, full=True, debug=False):
+    def __init__(self, embeddings_size, ngrams, full=True, debug=False):
         self.full = full
         self.ngrams = ngrams
         self.debug = debug
-        super(YelpDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
+        super(YelpDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/yelp_review_full_csv" if self.full else ".data/yelp_review_polarity_csv"
@@ -70,10 +72,10 @@ class YelpDataset(BaseDataset):
 
 class YahooDataset(BaseDataset):
 
-    def __init__(self, ngrams, debug=False):
+    def __init__(self, embeddings_size, ngrams, debug=False):
         self.ngrams = ngrams
         self.debug = debug
-        super(YahooDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
+        super(YahooDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/yahoo_answers_csv"
@@ -84,11 +86,11 @@ class YahooDataset(BaseDataset):
 
 class AmazonDataset(BaseDataset):
 
-    def __init__(self, ngrams, full=True, debug=False):
+    def __init__(self, embeddings_size, ngrams, full=True, debug=False):
         self.full = full
         self.ngrams = ngrams
         self.debug = debug
-        super(AmazonDataset, self).__init__(val_ratio=0.10) # TODO - Confirm correct val ratio
+        super(AmazonDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size) # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
@@ -102,7 +104,7 @@ class AmazonDataset(BaseDataset):
 
 class IMDBDataset(Dataset):
 
-    def __init__(self):
+    def __init__(self, embeddings_size, word2vec="6B"):
 
         words = Field(batch_first=True, eos_token=".", tokenize="spacy")
         labels = LabelField(dtype=torch.long)
@@ -110,8 +112,7 @@ class IMDBDataset(Dataset):
         training, test = datasets.IMDB.splits(words, labels)
         training, validation = training.split()
 
-        #words.build_vocab(training, vectors=GloVe(name='6B', dim=300))
-        words.build_vocab(training)
+        words.build_vocab(training, vectors=GloVe(name=word2vec, dim=embeddings_size))
         labels.build_vocab(training)
 
         self.n_classes = len(labels.vocab)
@@ -122,6 +123,7 @@ class IMDBDataset(Dataset):
         self.validation = validation
         self.test = test
         self.sort_key = lambda example: example.text
+        self.word2vec = words.vocab.vectors
 
     def __len__(self):
         return len(self.training)

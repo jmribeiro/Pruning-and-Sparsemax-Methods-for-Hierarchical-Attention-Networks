@@ -28,12 +28,12 @@ class LSTMClassifier(nn.Module):
     Very simple LSTM Classifier to test the datasets.
     """
 
-    def __init__(self, n_classes, n_words, embedding_size, layers, hidden_sizes, bidirectional, dropout, padding_value, device):
+    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, bidirectional, dropout, padding_value, device):
 
         super().__init__()
 
-        self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
-        self.lstm = nn.LSTM(embedding_size, hidden_sizes, layers, dropout=dropout, batch_first=True, bidirectional=bidirectional)
+        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(embeddings, padding_idx=padding_value)
+        self.lstm = nn.LSTM(embeddings.shape[1], hidden_sizes, layers, dropout=dropout, batch_first=True, bidirectional=bidirectional)
         if bidirectional: hidden_sizes *= 2
         self.bidirectional = bidirectional
         self.hidden_to_label = nn.Linear(hidden_sizes, n_classes)
@@ -56,16 +56,16 @@ class HierarchicalNetwork(nn.Module):
         but without attention
     """
 
-    def __init__(self, n_classes, n_words, embedding_size, layers, hidden_sizes, dropout, padding_value, eos_value, device):
+    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device):
 
         super(HierarchicalNetwork, self).__init__()
 
         self.padding_value = padding_value
         self.end_of_sentence_value = eos_value
 
-        # TODO -> Load pretrained Word2Vec
-        self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
-        self.word_encoder = nn.GRU(embedding_size, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
+        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(embeddings, padding_idx=padding_value)
+
+        self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
         self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
         self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
 
@@ -106,17 +106,16 @@ class HierarchicalAttentionNetwork(nn.Module):
 
     """ Original model from https://www.cs.cmu.edu/~./hovy/papers/16HLT-hierarchical-attention-networks.pdf"""
 
-    def __init__(self, n_classes, n_words, embedding_size, layers, hidden_sizes, dropout, padding_value, eos_value, device):
+    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device):
 
         super(HierarchicalAttentionNetwork, self).__init__()
 
         self.padding_value = padding_value
         self.end_of_sentence_value = eos_value
 
-        # TODO -> Load pretrained Word2Vec
-        self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
+        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(embeddings, padding_idx=padding_value)
 
-        self.word_encoder = nn.GRU(embedding_size, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
+        self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
 
         self.word_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
         self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
@@ -181,7 +180,7 @@ class HierarchicalAttentionNetwork(nn.Module):
 
 class PrunedHierarchicalAttentionNetwork(nn.Module):
 
-    def __init__(self, n_classes, n_words, attention_threshold, embedding_size, layers, hidden_sizes, dropout, padding_value, eos_value, device):
+    def __init__(self, n_classes, n_words, attention_threshold, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device):
 
         super(PrunedHierarchicalAttentionNetwork, self).__init__()
 
@@ -189,10 +188,9 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
         self.end_of_sentence_value = eos_value
         self.attention_threshold = attention_threshold
 
-        # TODO -> Load pretrained Word2Vec
-        self.embedder = nn.Embedding(n_words, embedding_size, padding_idx=padding_value)
+        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(embeddings, padding_idx=padding_value)
 
-        self.word_encoder = nn.GRU(embedding_size, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
+        self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
 
         self.word_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
         self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
