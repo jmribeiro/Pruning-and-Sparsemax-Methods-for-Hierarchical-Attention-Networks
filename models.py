@@ -242,7 +242,7 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
 
         # B x S
         attention_weights = F.softmax(hidden_representations @ self.sentence_context_vector, dim=1)
-        document = self.prune_attentions(attention_weights, hidden_representations)
+        document = self.prune_attentions(attention_weights, hidden_representations).squeeze(dim=1)
 
         # Batch of document "scores": num_classes outputs [BxK]
         scores = self.hidden_to_label(document)

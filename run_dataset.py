@@ -202,8 +202,8 @@ if __name__ == '__main__':
             root = f"results/{opt.dataset}/{model}"
             pathlib.Path(root).mkdir(parents=True, exist_ok=True)
             with open(f"{root}/final_test_accuracy_{runid}.txt", "w") as text_file: text_file.write(f"{final_test_accuracy}")
-            np.save(root+f"/train_mean_losses_{runid}.npy", np.array(train_mean_losses), encoding="utf8")
-            np.save(root+f"/valid_accs_{runid}.npy", np.array(valid_accs), encoding="utf8")
+            np.save(root+f"/train_mean_losses_{runid}.npy", np.array(train_mean_losses))
+            np.save(root+f"/valid_accs_{runid}.npy", np.array(valid_accs))
 
         if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
         for model in models:
