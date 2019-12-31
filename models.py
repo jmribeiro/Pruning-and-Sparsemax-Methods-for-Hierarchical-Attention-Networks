@@ -262,6 +262,7 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
                 new_weight = new_weight / new_weight.sum()
                 new_hiddens = hidden_representations[i, sentence.nonzero()]
                 new_hiddens = new_hiddens.reshape(remaining_values, H2)
+                new_weight = new_weight.reshape ( remaining_values)
                 for t in range(remaining_values):
                     # TODO - Not working...
                     attention_output[i] += new_weight[t] * new_hiddens[t]

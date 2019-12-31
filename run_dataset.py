@@ -95,7 +95,7 @@ def train(model_name, dataset, opt):
 
     if model_name == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
     elif model_name == "phan": model = PrunedHierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.attention_threshold, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif model_name == "hsan": model = HierarchicalSparsemaxAttentionNetwork(device)  # FIXME - Proper arguments when done
+    elif model_name == "hsan": model = HierarchicalSparsemaxAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
     elif model_name == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
     elif model_name == "hn": model = HierarchicalNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
     else: model = None  # Unreachable code
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('-nrun', type=int, help="N number of runs.", default=1)
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
 
-    models = ['han', 'hsan'] # TODO -> Add PSAN when done
+    models = ['hsan', 'han'] # TODO -> Add PSAN when done
 
     opt = parser.parse_args()
 
