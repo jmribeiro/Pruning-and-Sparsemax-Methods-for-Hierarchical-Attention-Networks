@@ -178,6 +178,7 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help="Datasets pruned into smaller sizes for faster loading.")
     parser.add_argument('-quiet', action='store_true', help='No execution output.')
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
+    parser.add_argument('-nrun', type=int, help="N number of runs.", default=1)
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
 
     models = ['han', 'phan'] # TODO -> Add HSAN when done
@@ -186,24 +187,30 @@ if __name__ == '__main__':
 
     dataset = load_dataset(opt)
 
-    results = {}
+    nruns = torch.arange(1, opt.nrun + 1)
 
-    runid = getrandbits(64)
-    for model in models:
-        train_mean_losses, valid_accs, final_test_accuracy = train(model, dataset, opt)
-        results[model] = train_mean_losses, valid_accs, final_test_accuracy
-        root = f"results/{opt.dataset}/{model}"
-        pathlib.Path(root).mkdir(parents=True, exist_ok=True)
-        with open(f"{root}/final_test_accuracy_{runid}.txt", "w") as text_file: text_file.write(f"{final_test_accuracy}")
-        np.save(root+f"/train_mean_losses_{runid}.npy", np.array(train_mean_losses))
-        np.save(root+f"/valid_accs_{runid}.npy", np.array(valid_accs))
+    for nrun in nruns:
 
-    if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
-    for model in models:
-        train_mean_losses, valid_accs, final_test_accuracy = results[model]
-        try: os.mkdir("plots")
-        except FileExistsError: pass
-        plot(torch.arange(1, opt.epochs + 1), train_mean_losses, ylabel='Loss', name=f"plots/{opt.dataset}-{model}-training-loss")
-        plot(torch.arange(1, opt.epochs + 1), valid_accs, ylabel='Accuracy', name=f"plots/{opt.dataset}-{model}-validation-accuracy")
+        if not opt.quiet: print(f"*** run number  {nrun} ***", end="", flush=True)
 
-    if not opt.quiet: print(" (Done)\n", flush=True)
+        results = {}
+
+        runid = getrandbits(64)
+        for model in models:
+            train_mean_losses, valid_accs, final_test_accuracy = train(model, dataset, opt)
+            results[model] = train_mean_losses, valid_accs, final_test_accuracy
+            root = f"results/{opt.dataset}/{model}"
+            pathlib.Path(root).mkdir(parents=True, exist_ok=True)
+            with open(f"{root}/final_test_accuracy_{runid}.txt", "w") as text_file: text_file.write(f"{final_test_accuracy}")
+            np.save(root+f"/train_mean_losses_{runid}.npy", np.array(train_mean_losses), encoding="utf8")
+            np.save(root+f"/valid_accs_{runid}.npy", np.array(valid_accs), encoding="utf8")
+
+        if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
+        for model in models:
+            train_mean_losses, valid_accs, final_test_accuracy = results[model]
+            try: os.mkdir("plots")
+            except FileExistsError: pass
+            plot(torch.arange(1, opt.epochs + 1), train_mean_losses, ylabel='Loss', name=f"plots/{opt.dataset}-{model}-training-loss")
+            plot(torch.arange(1, opt.epochs + 1), valid_accs, ylabel='Accuracy', name=f"plots/{opt.dataset}-{model}-validation-accuracy")
+
+        if not opt.quiet: print(" (Done)\n", flush=True)
