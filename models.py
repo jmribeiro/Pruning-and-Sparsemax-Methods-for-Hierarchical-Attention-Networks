@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
-from sparseMax import SparseMax
+from sparseMax import Sparsemax
 
 """
 If three classes turn out to be very similar, 
@@ -294,6 +294,8 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
 
     def forward(self, X):
         sentences = []
+        # Init sparsemax activation function [model]
+        sparsemax = Sparsemax(dim=1, k=None)
 
         for x in X:  # TODO - Check if this can be vectorized?
 
@@ -310,9 +312,7 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
             hidden_representations = self.word_hidden_representation(hidden)
 
             # S x L
-            # attention_weights = F.softmax(hidden_representations @ self.word_context_vector, dim=1)
-            attention_weights = SparseMax.apply((hidden_representations @ self.word_context_vector), 1, None)
-
+            attention_weights = sparsemax(hidden_representations @ self.word_context_vector)
             attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
             # S x 2H
@@ -328,8 +328,7 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
         hidden_representations = self.sentence_hidden_representation(hidden)
 
         # B x S
-        attention_weights = SparseMax.apply(hidden_representations.matmul(self.sentence_context_vector), 1, None)
-        # attention_weights = F.softmax(hidden_representations.matmul(self.sentence_context_vector), dim=1)
+        attention_weights = sparsemax(hidden_representations.matmul(self.sentence_context_vector))
         attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
         document = (attention_weights @ hidden).squeeze(dim=1)

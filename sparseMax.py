@@ -1,5 +1,9 @@
 import torch
 from torch.autograd import Function
+from torch import nn
+
+
+# Implentation based on  [Author: Vlad Niculae <vlad@vene.ro>]
 
 # Compute threshold function
 def threshold(input_x, dim, k):
@@ -46,26 +50,29 @@ def make_ix_like(input_x, dim):
     return rho.view(view).transpose(0, dim)
 
 
-# Sparse Implementation
-class SparseMax(Function):
-    @classmethod
-    def forward(cls, ctx, X, dim=-1, k=None):
-        ctx.dim = dim
-        max_val, _ = X.max(dim=dim, keepdim=True)
-        X = X - max_val  # same numerical stability trick as softmax
-        tau, supp_size = threshold(X, dim=dim, k=k)
+# Sparsemax activation function Implementation
+class Sparsemax(nn.Module):
+    def __init__(self, dim=-1, k=None):
+        self.dim = dim
+        self.k = k
+        self.supp_size = None
+        self.output = None
+        super(Sparsemax, self).__init__()
+
+    def forward(self, X):
+        max_val, _ = X.max(dim=self.dim, keepdim=True)
+        X = X - max_val
+        tau, supp_size = threshold(X, dim=self.dim, k=self.k)
         output = torch.clamp(X - tau, min=0)
-        ctx.save_for_backward(supp_size, output)
+        self.supp_size = supp_size
+        self.output = output
         return output
 
-    @classmethod
-    def backward(cls, ctx, grad_output):
-        supp_size, output = ctx.saved_tensors
-        dim = ctx.dim
+    def backward(self, grad_output):
         grad_input = grad_output.clone()
-        grad_input[output == 0] = 0
+        grad_input[self.output == 0] = 0
 
-        v_hat = grad_input.sum(dim=dim) / supp_size.to(output.dtype).squeeze()
-        v_hat = v_hat.unsqueeze(dim)
-        grad_input = torch.where(output != 0, grad_input - v_hat, grad_input)
+        v_hat = grad_input.sum(dim=self.dim) / self.supp_size.to(self.output.dtype).squeeze()
+        v_hat = v_hat.unsqueeze(self.dim)
+        grad_input = torch.where(self.output != 0, grad_input - v_hat, grad_input)
         return grad_input, None, None
