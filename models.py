@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
-from torch.autograd import Function
 
 """
 If three classes turn out to be very similar, 
@@ -293,12 +292,14 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
         self.sentence_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
         self.sentence_context_vector.data.uniform_(-1, 1)
 
+        self.sparsemax = Sparsemax(dim=1, k=None)
         self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
 
         self.device = device
         self.to(device)
 
     def forward(self, X):
+
         sentences = []
 
         for x in X:  # TODO - Check if this can be vectorized?
@@ -316,7 +317,7 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
             hidden_representations = self.word_hidden_representation(hidden)
 
             # S x L
-            attention_weights = Sparsemax.apply((hidden_representations @ self.word_context_vector), 1, None)
+            attention_weights = self.sparsemax(hidden_representations @ self.word_context_vector)
             attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
             # S x 2H
@@ -332,7 +333,7 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
         hidden_representations = self.sentence_hidden_representation(hidden)
 
         # B x S
-        attention_weights = Sparsemax.apply(hidden_representations.matmul(self.sentence_context_vector), 1, None)
+        attention_weights = self.sparsemax(hidden_representations.matmul(self.sentence_context_vector))
         attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
         document = (attention_weights @ hidden).squeeze(dim=1)
@@ -343,27 +344,31 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
         return scores
 
 
-class Sparsemax(Function):
+class Sparsemax(nn.Module):
 
-    @classmethod
-    def forward(cls, ctx, X, dim=-1, k=None):
-        ctx.dim = dim
-        max_val, _ = X.max(dim=dim, keepdim=True)
-        X = X - max_val  # same numerical stability trick as softmax
-        tau, supp_size = Sparsemax.threshold(X, dim=dim, k=k)
+    def __init__(self, dim=-1, k=None):
+        self.dim = dim
+        self.k = k
+        self.supp_size = None
+        self.output = None
+        super(Sparsemax, self).__init__()
+
+    def forward(self, X):
+        max_val, _ = X.max(dim=self.dim, keepdim=True)
+        X = X - max_val
+        tau, supp_size = Sparsemax.threshold(X, dim=self.dim, k=self.k)
         output = torch.clamp(X - tau, min=0)
-        ctx.save_for_backward(supp_size, output)
+        self.supp_size = supp_size
+        self.output = output
         return output
 
-    @classmethod
-    def backward(cls, ctx, grad_output):
-        supp_size, output = ctx.saved_tensors
-        dim = ctx.dim
+    def backward(self, grad_output):
         grad_input = grad_output.clone()
-        grad_input[output == 0] = 0
-        v_hat = grad_input.sum(dim=dim) / supp_size.to(output.dtype).squeeze()
-        v_hat = v_hat.unsqueeze(dim)
-        grad_input = torch.where(output != 0, grad_input - v_hat, grad_input)
+        grad_input[self.output == 0] = 0
+
+        v_hat = grad_input.sum(dim=self.dim) / self.supp_size.to(self.output.dtype).squeeze()
+        v_hat = v_hat.unsqueeze(self.dim)
+        grad_input = torch.where(self.output != 0, grad_input - v_hat, grad_input)
         return grad_input, None, None
 
     @staticmethod
@@ -394,8 +399,11 @@ class Sparsemax(Function):
 
     @staticmethod
     def roll_last(input_x, dim):
-        if dim == -1: return input_x
-        elif dim < 0: dim = input_x.dim() - dim
+        if dim == -1:
+            return input_x
+        elif dim < 0:
+            dim = input_x.dim() - dim
+
         perm = [i for i in range(input_x.dim()) if i != dim] + [dim]
         return input_x.permute(perm)
 
