@@ -181,7 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('-nrun', type=int, help="N number of runs.", default=1)
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
 
-    models = ['han', 'phan'] # TODO -> Add HSAN when done
+    models = ['han', 'hsan'] # TODO -> Add PSAN when done
 
     opt = parser.parse_args()
 
