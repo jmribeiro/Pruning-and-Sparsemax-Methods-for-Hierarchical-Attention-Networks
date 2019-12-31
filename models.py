@@ -251,7 +251,7 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
 
     def prune_attentions(self, attention_weights, hidden_representations):
         S, L, H2 = hidden_representations.shape
-        pruned_attention_weights = (attention_weights < self.attention_threshold) * attention_weights
+        pruned_attention_weights = (attention_weights >= self.attention_threshold).float() * attention_weights
         attention_output = torch.zeros(S, H2).to(self.device)
         for i in range(S):
             sentence = pruned_attention_weights[i]
