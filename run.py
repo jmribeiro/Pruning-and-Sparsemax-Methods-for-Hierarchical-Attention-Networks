@@ -30,7 +30,13 @@ def train_batch(batch, model, optimizer, criterion):
     loss.backward()
     optimizer.step()
 
-    return loss.detach()
+    loss_dtach = loss.detach()
+
+    # There's a memory leak somewhere
+    if "cuda" in model.device.type:
+        torch.cuda.empty_cache()
+
+    return loss_dtach
 
 
 def predict(model, X):
@@ -39,18 +45,26 @@ def predict(model, X):
     return predicted_labels
 
 
+def evaluate_batch(model, batch):
+    X = batch.text.to(model.device)
+    y = batch.label.to(model.device)
+    model.eval()
+    y_hat = predict(model, X)
+    n_correct = (y == y_hat).sum().item()
+    # There's a memory leak somewhere
+    if "cuda" in model.device.type:
+        torch.cuda.empty_cache()
+    return n_correct
+
+
 def evaluate(model, dataloader):
 
     n_correct = 0
     n_possible = 0
 
     for batch in dataloader:
-        X = batch.text.to(model.device)
-        y = batch.label.to(model.device)
-        model.eval()
-        y_hat = predict(model, X)
-        n_correct += (y == y_hat).sum().item()
-        n_possible += float(y.shape[0])
+        n_correct += evaluate_batch(model, batch)
+        n_possible += float(batch.batch_size)
 
     return n_correct / n_possible
 
