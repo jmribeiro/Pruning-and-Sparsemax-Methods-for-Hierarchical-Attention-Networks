@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
-from sparseMax import SparseMax
+from torch.autograd import Function
 
 """
 If three classes turn out to be very similar, 
@@ -137,13 +137,13 @@ class HierarchicalAttentionNetwork(nn.Module):
 
         sentences = []
 
-        for x in X: # TODO - Check if this can be vectorized?
+        for x in X:
 
             # S x L
-            document = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
+            words = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
 
             # S x L x E
-            words = self.embedder(document)
+            words = self.embedder(words)
 
             # S x L x 2H
             hidden, _ = self.word_encoder(words)
@@ -158,7 +158,7 @@ class HierarchicalAttentionNetwork(nn.Module):
             # S x 2H
             sentences.append((attention_weights @ hidden).squeeze(dim=1))
 
-        # B x S x 2H]
+        # B x S x 2H
         sentences = pad_sequence(sentences, batch_first=True)
 
         # B x S x 2H
@@ -228,10 +228,9 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
 
             # S x L
             attention_weights = F.softmax(hidden_representations @ self.word_context_vector, dim=1)
-            pruned_attention_weights = self.prune_attentions(attention_weights)
 
             # S x 2H
-            sentences.append((pruned_attention_weights @ hidden).squeeze(dim=1))
+            sentences.append(self.prune_attentions(attention_weights, hidden_representations))
 
         # B x S x 2H]
         sentences = pad_sequence(sentences, batch_first=True)
@@ -244,21 +243,30 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
 
         # B x S
         attention_weights = F.softmax(hidden_representations @ self.sentence_context_vector, dim=1)
-        pruned_attention_weights = self.prune_attentions(attention_weights)
-        document = (pruned_attention_weights @ hidden).squeeze(dim=1)
+        document = self.prune_attentions(attention_weights, hidden_representations)
 
         # Batch of document "scores": num_classes outputs [BxK]
         scores = self.hidden_to_label(document)
 
         return scores
 
-    def prune_attentions(self, attention_weights):
+    def prune_attentions(self, attention_weights, hidden_representations):
+        S, L, H2 = hidden_representations.shape
         pruned_attention_weights = (attention_weights < self.attention_threshold) * attention_weights
-        sums = pruned_attention_weights.sum(dim=1).reshape(attention_weights.shape[0], 1)
-        new_attention_weights = pruned_attention_weights / sums
-        new_attention_weights[torch.isnan(new_attention_weights)] = 0.0
-        new_attention_weights = new_attention_weights.reshape(new_attention_weights.shape[0], 1, new_attention_weights.shape[1])
-        return new_attention_weights
+        attention_output = torch.zeros(S, H2).to(self.device)
+        for i in range(S):
+            sentence = pruned_attention_weights[i]
+            sentence_pruned = sentence[sentence.nonzero()]
+            remaining_values = sentence_pruned.shape[0]
+            if remaining_values > 0:
+                new_weight = sentence_pruned.t()
+                new_weight = new_weight / new_weight.sum()
+                new_hiddens = hidden_representations[i, sentence.nonzero()]
+                new_hiddens = new_hiddens.reshape(remaining_values, H2)
+                for t in range(remaining_values):
+                    # TODO - Not working...
+                    attention_output[i] += new_weight[t] * new_hiddens[t]
+        return attention_output
 
 
 class HierarchicalSparsemaxAttentionNetwork(nn.Module):
@@ -273,15 +281,13 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
             embeddings,
             padding_idx=padding_value)
 
-        self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True,
-                                   dropout=dropout)
+        self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
 
         self.word_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
         self.word_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
         self.word_context_vector.data.uniform_(-1, 1)
 
-        self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True,
-                                       dropout=dropout)
+        self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
 
         self.sentence_hidden_representation = nn.Sequential(nn.Linear(hidden_sizes * 2, hidden_sizes * 2), nn.Tanh())
         self.sentence_context_vector = nn.Parameter(torch.Tensor(hidden_sizes * 2))
@@ -310,9 +316,7 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
             hidden_representations = self.word_hidden_representation(hidden)
 
             # S x L
-            # attention_weights = F.softmax(hidden_representations @ self.word_context_vector, dim=1)
-            attention_weights = SparseMax.apply((hidden_representations @ self.word_context_vector), 1, None)
-
+            attention_weights = Sparsemax.apply((hidden_representations @ self.word_context_vector), 1, None)
             attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
             # S x 2H
@@ -328,8 +332,7 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
         hidden_representations = self.sentence_hidden_representation(hidden)
 
         # B x S
-        attention_weights = SparseMax.apply(hidden_representations.matmul(self.sentence_context_vector), 1, None)
-        # attention_weights = F.softmax(hidden_representations.matmul(self.sentence_context_vector), dim=1)
+        attention_weights = Sparsemax.apply(hidden_representations.matmul(self.sentence_context_vector), 1, None)
         attention_weights = attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
 
         document = (attention_weights @ hidden).squeeze(dim=1)
@@ -338,3 +341,68 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
         scores = self.hidden_to_label(document)
 
         return scores
+
+
+class Sparsemax(Function):
+
+    @classmethod
+    def forward(cls, ctx, X, dim=-1, k=None):
+        ctx.dim = dim
+        max_val, _ = X.max(dim=dim, keepdim=True)
+        X = X - max_val  # same numerical stability trick as softmax
+        tau, supp_size = Sparsemax.threshold(X, dim=dim, k=k)
+        output = torch.clamp(X - tau, min=0)
+        ctx.save_for_backward(supp_size, output)
+        return output
+
+    @classmethod
+    def backward(cls, ctx, grad_output):
+        supp_size, output = ctx.saved_tensors
+        dim = ctx.dim
+        grad_input = grad_output.clone()
+        grad_input[output == 0] = 0
+        v_hat = grad_input.sum(dim=dim) / supp_size.to(output.dtype).squeeze()
+        v_hat = v_hat.unsqueeze(dim)
+        grad_input = torch.where(output != 0, grad_input - v_hat, grad_input)
+        return grad_input, None, None
+
+    @staticmethod
+    def threshold(input_x, dim, k):
+        if k is None or k >= input_x.shape[dim]:  # do full sort
+            topk, _ = torch.sort(input_x, dim=dim, descending=True)
+        else:
+            topk, _ = torch.topk(input_x, k=k, dim=dim)
+
+        topk_cumsum = topk.cumsum(dim) - 1
+        rhos = Sparsemax.make_ix_like(topk, dim)
+        support = rhos * topk > topk_cumsum
+
+        support_size = support.sum(dim=dim).unsqueeze(dim)
+        tau = topk_cumsum.gather(dim, support_size - 1)
+        tau /= support_size.to(input_x.dtype)
+
+        if k is not None and k < input_x.shape[dim]:
+            unsolved = (support_size == k).squeeze(dim)
+
+            if torch.any(unsolved):
+                in_ = Sparsemax.roll_last(input_x, dim)[unsolved]
+                tau_, ss_ = Sparsemax.threshold(in_, dim=-1, k=2 * k)
+                Sparsemax.roll_last(tau, dim)[unsolved] = tau_
+                Sparsemax.roll_last(support_size, dim)[unsolved] = ss_
+
+        return tau, support_size
+
+    @staticmethod
+    def roll_last(input_x, dim):
+        if dim == -1: return input_x
+        elif dim < 0: dim = input_x.dim() - dim
+        perm = [i for i in range(input_x.dim()) if i != dim] + [dim]
+        return input_x.permute(perm)
+
+    @staticmethod
+    def make_ix_like(input_x, dim):
+        d = input_x.size(dim)
+        rho = torch.arange(1, d + 1, device=input_x.device, dtype=input_x.dtype)
+        view = [1] * input_x.dim()
+        view[0] = -1
+        return rho.view(view).transpose(0, dim)
