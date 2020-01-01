@@ -229,7 +229,7 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
             attention_weights = F.softmax(hidden_representations @ self.word_context_vector, dim=1)
 
             # S x 2H
-            sentences.append(self.prune_attentions(attention_weights, hidden_representations))
+            sentences.append(self.prune_attentions(attention_weights, hidden_representations).squeeze(dim=1))
 
         # B x S x 2H]
         sentences = pad_sequence(sentences, batch_first=True)
