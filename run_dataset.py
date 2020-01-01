@@ -18,7 +18,6 @@ from random import getrandbits
 # Classification Utils #
 # #################### #
 
-
 def train_batch(batch, model, optimizer, criterion):
 
     X = batch.text.to(model.device)
@@ -76,14 +75,13 @@ def load_dataset(opt):
 
     if not opt.quiet: print(f"*** Loading {opt.dataset} dataset{f' [small size / debug mode]' if opt.debug else ''} ***", end="", flush=True)
 
-    if opt.dataset == "yelp": dataset = YelpDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
+    if opt.dataset == "yelp": dataset = YelpDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug, sample=opt.sample)
     elif opt.dataset == "yahoo": dataset = YahooDataset(embeddings_size=opt.embeddings_size, ngrams=opt.ngrams, debug=opt.debug)
     elif opt.dataset == "imdb": dataset = IMDBDataset(embeddings_size=opt.embeddings_size)
     elif opt.dataset == "amazon": dataset = AmazonDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
     else: dataset = None  # Unreachable code
 
     if not opt.quiet: print(f" (Done) [{len(dataset)} training samples]", flush=True)
-
     return dataset
 
 
@@ -180,6 +178,7 @@ if __name__ == '__main__':
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
     parser.add_argument('-nrun', type=int, help="N number of runs.", default=1)
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
+    parser.add_argument('-sample',  action='store_true', help="Use sample dataset which correspont to 20% from the entire dataset")
 
     models = ['hsan', 'han'] # TODO -> Add PSAN when done
 

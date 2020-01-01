@@ -1,4 +1,6 @@
 from abc import abstractmethod
+import csv
+import os
 
 import torch
 from torch.utils.data.dataset import Dataset
@@ -9,15 +11,45 @@ from torchtext.datasets import text_classification
 from torchtext.vocab import GloVe
 
 
+def split_csv_files(path):
+    print("==== Split train.csv and test.csv files =====")
+    for file_name in ["/train", "/test"]:
+        print(path + file_name)
+
+        with open(path + file_name + ".csv") as infile:
+            reader = csv.DictReader(infile)
+            header = reader.fieldnames
+            rows = [row for row in reader]
+
+            csv_rows = rows[0: int(len(rows) * .1)]
+
+            with open(path + '{}_sample.csv'.format(file_name), 'w', newline='') as outfile:
+                writer = csv.DictWriter(outfile, fieldnames=header)
+                writer.writerows(csv_rows)
+
+        print('Delete {}.csv'.format(file_name))
+        os.remove(path + file_name + '.csv')
+
+        print('Rename {}_sample.csv to {}.csv'.format(file_name, file_name))
+        os.rename(path + file_name + "_sample.csv", path + file_name + ".csv")
+
+
+def remove_path_if_exist(path):
+    # É preciso apagar a pasta de forma a gerar os 20% do dataset com o original
+
+    if os.path.exists(path):
+        os.remove(path)
+
+
 class BaseDataset(Dataset):
 
     def __init__(self, val_ratio, embeddings_size, word2vec="6B"):
-
         words = Field(batch_first=True, eos_token=".", tokenize="spacy")
         labels = LabelField(dtype=torch.long)
 
         directory = self.load_dataset(".data")
-        training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv', fields=[('label', labels), ('text', words)])
+        training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv',
+                                               fields=[('label', labels), ('text', words)])
 
         # Vocabs
         words.build_vocab(training, vectors=GloVe(name=word2vec, dim=embeddings_size))
@@ -54,19 +86,27 @@ class BaseDataset(Dataset):
 
 class YelpDataset(BaseDataset):
 
-    def __init__(self, embeddings_size, ngrams, full=True, debug=False):
+    def __init__(self, embeddings_size, ngrams, full=True, debug=False, sample=False):
         self.full = full
         self.ngrams = ngrams
         self.debug = debug
-        super(YelpDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size) # TODO - Confirm correct val ratio
+        self.sample = sample
+        super(YelpDataset, self).__init__(val_ratio=0.10,
+                                          embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/yelp_review_full_csv" if self.full else ".data/yelp_review_polarity_csv"
         if not self.debug:
-            if self.full: text_classification.YelpReviewFull(ngrams=self.ngrams, root=root)
-            else: text_classification.YelpReviewPolarity(ngrams=self.ngrams, root=root)
+            if self.sample:
+                remove_path_if_exist(path)
+            if self.full:
+                text_classification.YelpReviewFull(ngrams=self.ngrams, root=root)
+            else:
+                text_classification.YelpReviewPolarity(ngrams=self.ngrams, root=root)
         else:
             path += "_debug"
+        if not self.debug and self.sample:
+            split_csv_files(path)
         return path
 
 
@@ -75,12 +115,15 @@ class YahooDataset(BaseDataset):
     def __init__(self, embeddings_size, ngrams, debug=False):
         self.ngrams = ngrams
         self.debug = debug
-        super(YahooDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size) # TODO - Confirm correct val ratio
+        super(YahooDataset, self).__init__(val_ratio=0.10,
+                                           embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/yahoo_answers_csv"
-        if not self.debug: text_classification.YahooAnswers(ngrams=self.ngrams)
-        else: path += "_debug"
+        if not self.debug:
+            text_classification.YahooAnswers(ngrams=self.ngrams)
+        else:
+            path += "_debug"
         return path
 
 
@@ -90,13 +133,16 @@ class AmazonDataset(BaseDataset):
         self.full = full
         self.ngrams = ngrams
         self.debug = debug
-        super(AmazonDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size) # TODO - Confirm correct val ratio
+        super(AmazonDataset, self).__init__(val_ratio=0.10,
+                                            embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
         if not self.debug:
-            if self.full: text_classification.AmazonReviewFull(ngrams=self.ngrams)
-            else: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
+            if self.full:
+                text_classification.AmazonReviewFull(ngrams=self.ngrams)
+            else:
+                text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
         else:
             path += "_debug"
         return path
@@ -105,7 +151,6 @@ class AmazonDataset(BaseDataset):
 class IMDBDataset(Dataset):
 
     def __init__(self, embeddings_size, word2vec="6B"):
-
         words = Field(batch_first=True, eos_token=".", tokenize="spacy")
         labels = LabelField(dtype=torch.long)
 
