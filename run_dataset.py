@@ -180,7 +180,7 @@ if __name__ == '__main__':
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
     parser.add_argument('-sample',  action='store_true', help="Use sample dataset which correspont to 20% from the entire dataset")
 
-    models = ['hsan', 'han'] # TODO -> Add PSAN when done
+    models = ['han', 'hsan'] # TODO -> Add PSAN when done
 
     opt = parser.parse_args()
 

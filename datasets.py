@@ -1,6 +1,8 @@
 from abc import abstractmethod
 import csv
 import os
+import shutil
+
 
 import torch
 from torch.utils.data.dataset import Dataset
@@ -38,7 +40,7 @@ def remove_path_if_exist(path):
     # É preciso apagar a pasta de forma a gerar os 20% do dataset com o original
 
     if os.path.exists(path):
-        os.remove(path)
+        shutil.rmtree(path)
 
 
 class BaseDataset(Dataset):
