@@ -5,22 +5,11 @@ import pathlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-import torch
+from random import getrandbits
 
 # ############ #
 # Presentation #
 # ############ #
-
-def plot(epochs, plottable, ylabel, name):
-    plt.clf()
-    plt.xlabel('Epoch')
-    plt.ylabel(ylabel)
-    plt.plot(epochs, plottable)
-    plt.title(name)
-    plt.savefig('%s.pdf' % name, bbox_inches='tight')
-    plt.close()
-
-
 
 def load_npy_files(path):
 
@@ -45,21 +34,33 @@ def load_npy_files(path):
             losses.append(data)
         if "accs" in file:
             valid_accs.append(data)
-    return losses, valid_accs,final_accuracy
+    return losses, valid_accs,final_acc
+
+def plotfile(run, plottable, ylabel, title, name):
+    plt.clf()
+    plt.xlabel('Run')
+    plt.ylabel(ylabel)
+    plt.xticks(run)
+    plt.plot(run, plottable)
+    plt.title(title)
+    plt.savefig('%s.pdf' % name, bbox_inches='tight')
+    plt.close()
 
 
-def plotfiles(plottable, ylabel, name):
+
+def plotfiles(plottable, ylabel, title, name):
     plt.clf()
     plt.xlabel('Epoch')
     plt.ylabel(ylabel)
 
     for plotitem  in plottable:
         nitem = len(plotitem)
-        plt.plot(torch.arange(1, nitem + 1), plotitem)
-
-
+        nitems = np.arange(1, nitem + 1)
+        plt.xticks(nitems)
+        # plt.plot(torch.arange(1, nitem + 1), plotitem)
+        plt.plot(nitems, plotitem)
     plt.ylabel (ylabel)
-    plt.title(name)
+    plt.title(title)
     plt.savefig('%s.pdf' % name, bbox_inches='tight')
     plt.close()
 
@@ -106,15 +107,16 @@ if __name__ == '__main__':
     except FileExistsError:
         pass
 
-    plotfiles(train_mean_losses, ylabel='Loss',
-            name=f"plots/{opt.dataset}-{model}-training-loss")
+    fileid = getrandbits(64)
+    plotfiles(train_mean_losses, ylabel='Loss', title = f"{opt.dataset}-{model}-training-loss",
+            name=f"plots/{fileid}-{opt.dataset}-{model}-training-loss")
 
-    plotfiles(valid_accs, ylabel='Accuracy',
-             name=f"plots/{opt.dataset}-{model}-validation-accuracy")
+    plotfiles(valid_accs, ylabel='Accuracy', title = f"{opt.dataset}-{model}-validation-accuracy",
+             name=f"plots/{fileid}-{opt.dataset}-{model}-validation-accuracy")
 
     nfiles = len(final_test_accuracy )
-    plot(torch.arange(1, nfiles + 1), final_test_accuracy , ylabel='Final Accuracy',
-         name=f"plots/{opt.dataset}-{model}-final-accuracy")
+    plotfile(np.arange(1, nfiles + 1), final_test_accuracy , ylabel='Final Accuracy',
+             title=f"{opt.dataset}-{model}-final-accuracy", name=f"plots/{fileid}-{opt.dataset}-{model}-final-accuracy")
 
 
     if not opt.quiet: print(" (Done)\n", flush=True)
