@@ -174,8 +174,9 @@ class IMDBDataset(Dataset):
         training, test = datasets.IMDB.splits(words, labels)
         if self.sample:
             # TODO -> ajuda me a validar se isto funciona
-            training = training * dataset_size
-            test = test * dataset_size
+            print("Validar")
+            # training = training * dataset_size
+            # test = test * dataset_size
             #--------------------------------
         training, validation = training.split()
 
