@@ -13,7 +13,7 @@ from torchtext.datasets import text_classification
 from torchtext.vocab import GloVe
 
 
-def split_csv_files(path):
+def split_csv_files(path, dataset_size):
     print("==== Split train.csv and test.csv files =====")
     for file_name in ["/train", "/test"]:
         print(path + file_name)
@@ -23,7 +23,7 @@ def split_csv_files(path):
             header = reader.fieldnames
             rows = [row for row in reader]
 
-            csv_rows = rows[0: int(len(rows) * .1)]
+            csv_rows = rows[0: int(len(rows) * dataset_size)]
 
             with open(path + '{}_sample.csv'.format(file_name), 'w', newline='') as outfile:
                 writer = csv.DictWriter(outfile, fieldnames=header)
@@ -88,11 +88,12 @@ class BaseDataset(Dataset):
 
 class YelpDataset(BaseDataset):
 
-    def __init__(self, embeddings_size, ngrams, full=True, debug=False, sample=False):
+    def __init__(self, embeddings_size, ngrams, full=True, debug=False, sample=False, dataset_size=.01):
         self.full = full
         self.ngrams = ngrams
         self.debug = debug
         self.sample = sample
+        self.dataset_size = dataset_size
         super(YelpDataset, self).__init__(val_ratio=0.10,
                                           embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
 
@@ -108,45 +109,57 @@ class YelpDataset(BaseDataset):
         else:
             path += "_debug"
         if not self.debug and self.sample:
-            split_csv_files(path)
+            split_csv_files(path, self.dataset_size)
         return path
 
 
 class YahooDataset(BaseDataset):
 
-    def __init__(self, embeddings_size, ngrams, debug=False):
+    def __init__(self, embeddings_size, ngrams, debug=False, sample=False, dataset_size=0.01):
         self.ngrams = ngrams
         self.debug = debug
+        self.sample = sample
+        self.dataset_size = dataset_size
         super(YahooDataset, self).__init__(val_ratio=0.10,
                                            embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/yahoo_answers_csv"
         if not self.debug:
+            if self.sample:
+                remove_path_if_exist(path)
             text_classification.YahooAnswers(ngrams=self.ngrams)
         else:
             path += "_debug"
+        if not self.debug and self.sample:
+            split_csv_files(path, self.dataset_size)
         return path
 
 
 class AmazonDataset(BaseDataset):
 
-    def __init__(self, embeddings_size, ngrams, full=True, debug=False):
+    def __init__(self, embeddings_size, ngrams, full=True, debug=False, sample=False, dataset_size=0.01):
         self.full = full
         self.ngrams = ngrams
         self.debug = debug
+        self.sample = sample
+        self.dataset_size=dataset_size
         super(AmazonDataset, self).__init__(val_ratio=0.10,
                                             embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
 
     def load_dataset(self, root):
         path = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
         if not self.debug:
+            if self.sample:
+                remove_path_if_exist(path)
             if self.full:
                 text_classification.AmazonReviewFull(ngrams=self.ngrams)
             else:
                 text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
         else:
             path += "_debug"
+        if not self.debug and self.sample:
+            split_csv_files(path, self.dataset_size)
         return path
 
 

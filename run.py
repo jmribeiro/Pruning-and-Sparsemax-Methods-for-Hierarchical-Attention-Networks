@@ -8,66 +8,7 @@ from torch import nn
 from torchtext.data import BucketIterator
 from tqdm import tqdm
 
-from datasets import YelpDataset, YahooDataset, IMDBDataset, AmazonDataset
-from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier, HierarchicalNetwork, HierarchicalSparsemaxAttentionNetwork
-
-
-# #################### #
-# Classification Utils #
-# #################### #
-
-def train_batch(batch, model, optimizer, criterion):
-
-    X = batch.text.to(model.device)
-    y = batch.label.to(model.device)
-
-    optimizer.zero_grad()
-    model.train()
-
-    y_hat = model(X)
-    loss = criterion(y_hat, y)
-
-    loss.backward()
-    optimizer.step()
-
-    loss_dtach = loss.detach()
-
-    # There's a memory leak somewhere
-    if "cuda" in model.device.type:
-        torch.cuda.empty_cache()
-
-    return loss_dtach
-
-
-def predict(model, X):
-    scores = model(X)
-    predicted_labels = scores.argmax(dim=-1)
-    return predicted_labels
-
-
-def evaluate_batch(model, batch):
-    X = batch.text.to(model.device)
-    y = batch.label.to(model.device)
-    model.eval()
-    y_hat = predict(model, X)
-    n_correct = (y == y_hat).sum().item()
-    # There's a memory leak somewhere
-    if "cuda" in model.device.type:
-        torch.cuda.empty_cache()
-    return n_correct
-
-
-def evaluate(model, dataloader):
-
-    n_correct = 0
-    n_possible = 0
-
-    for batch in dataloader:
-        n_correct += evaluate_batch(model, batch)
-        n_possible += float(batch.batch_size)
-
-    return n_correct / n_possible
-
+from utils import train_batch, evaluate, load_dataset, select_model
 
 # ############ #
 # Presentation #
@@ -126,15 +67,7 @@ if __name__ == '__main__':
     # ############# #
     # 1 - Load Data #
     # ############# #
-
-    if not opt.quiet:
-        print(f"*** Loading {opt.dataset} dataset{f' [small size / debug mode]' if opt.debug else ''} ***", end="", flush=True)
-
-    if opt.dataset == "yelp": dataset = YelpDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
-    elif opt.dataset == "yahoo": dataset = YahooDataset(embeddings_size=opt.embeddings_size, ngrams=opt.ngrams, debug=opt.debug)
-    elif opt.dataset == "imdb": dataset = IMDBDataset(embeddings_size=opt.embeddings_size)
-    elif opt.dataset == "amazon": dataset = AmazonDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
-    else: dataset = None  # Unreachable code
+    dataset = load_dataset(opt)
 
     trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test), shuffle=True, batch_size=opt.batch_size, sort_key=dataset.sort_key)
 
@@ -148,12 +81,7 @@ if __name__ == '__main__':
 
     if not opt.quiet: print(f"*** Setting up {opt.model} model on device {device} ***", end="", flush=True)
 
-    if opt.model == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif opt.model == "phan": model = PrunedHierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.attention_threshold, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif opt.model == "hsan": model = HierarchicalSparsemaxAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
-    elif opt.model == "hn": model = HierarchicalNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    else: model = None  # Unreachable code
+    model = select_model(opt.model, dataset, opt, device)
 
     if not opt.quiet: print(" (Done)", flush=True)
 
