@@ -165,19 +165,11 @@ class AmazonDataset(BaseDataset):
 
 class IMDBDataset(Dataset):
 
-    def __init__(self, embeddings_size, word2vec="6B", sample = False, dataset_size = 0.01):
+    def __init__(self, embeddings_size, word2vec="6B"):
         words = Field(batch_first=True, eos_token=".", tokenize="spacy")
         labels = LabelField(dtype=torch.long)
-        self.sample = sample
-        self.dataset_size = dataset_size
 
         training, test = datasets.IMDB.splits(words, labels)
-        if self.sample:
-            # TODO -> ajuda me a validar se isto funciona
-            print("Validar")
-            # training = training * dataset_size
-            # test = test * dataset_size
-            #--------------------------------
         training, validation = training.split()
 
         words.build_vocab(training, vectors=GloVe(name=word2vec, dim=embeddings_size))

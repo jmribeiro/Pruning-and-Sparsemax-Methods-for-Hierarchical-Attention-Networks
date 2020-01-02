@@ -66,7 +66,7 @@ def load_dataset(opt):
 
     if opt.dataset == "yelp": dataset = YelpDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug, sample=opt.sample, dataset_size=opt.dataset_size)
     elif opt.dataset == "yahoo": dataset = YahooDataset(embeddings_size=opt.embeddings_size, ngrams=opt.ngrams, debug=opt.debug, sample=opt.sample, dataset_size=opt.dataset_size)
-    elif opt.dataset == "imdb": dataset = IMDBDataset(embeddings_size=opt.embeddings_size, sample=opt.sample, dataset_size=opt.dataset_size)
+    elif opt.dataset == "imdb": dataset = IMDBDataset(embeddings_size=opt.embeddings_size)
     elif opt.dataset == "amazon": dataset = AmazonDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug, sample=opt.sample, dataset_size=opt.dataset_size)
     else: dataset = None  # Unreachable code
 
