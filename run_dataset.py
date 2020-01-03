@@ -10,53 +10,8 @@ from torch import nn
 from torchtext.data import BucketIterator
 from tqdm import tqdm
 
-from datasets import YelpDataset, YahooDataset, IMDBDataset, AmazonDataset
-from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier, HierarchicalNetwork, HierarchicalSparsemaxAttentionNetwork
 from random import getrandbits
-
-# #################### #
-# Classification Utils #
-# #################### #
-
-
-def train_batch(batch, model, optimizer, criterion):
-
-    X = batch.text.to(model.device)
-    y = batch.label.to(model.device)
-
-    optimizer.zero_grad()
-    model.train()
-
-    y_hat = model(X)
-    loss = criterion(y_hat, y)
-
-    loss.backward()
-    optimizer.step()
-
-    return loss.detach()
-
-
-def predict(model, X):
-    scores = model(X)
-    predicted_labels = scores.argmax(dim=-1)
-    return predicted_labels
-
-
-def evaluate(model, dataloader):
-
-    n_correct = 0
-    n_possible = 0
-
-    for batch in dataloader:
-        X = batch.text.to(model.device)
-        y = batch.label.to(model.device)
-        model.eval()
-        y_hat = predict(model, X)
-        n_correct += (y == y_hat).sum().item()
-        n_possible += float(y.shape[0])
-
-    return n_correct / n_possible
-
+from utils import train_batch, evaluate, load_dataset, select_model, load_npy_files
 
 # ############ #
 # Presentation #
@@ -72,33 +27,14 @@ def plot(epochs, plottable, ylabel, name):
     plt.close()
 
 
-def load_dataset(opt):
-
-    if not opt.quiet: print(f"*** Loading {opt.dataset} dataset{f' [small size / debug mode]' if opt.debug else ''} ***", end="", flush=True)
-
-    if opt.dataset == "yelp": dataset = YelpDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
-    elif opt.dataset == "yahoo": dataset = YahooDataset(embeddings_size=opt.embeddings_size, ngrams=opt.ngrams, debug=opt.debug)
-    elif opt.dataset == "imdb": dataset = IMDBDataset(embeddings_size=opt.embeddings_size)
-    elif opt.dataset == "amazon": dataset = AmazonDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
-    else: dataset = None  # Unreachable code
-
-    if not opt.quiet: print(f" (Done) [{len(dataset)} training samples]", flush=True)
-
-    return dataset
-
-
 def train(model_name, dataset, opt):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() and opt.cuda else "cpu")
 
-    if not opt.quiet: print(f"*** Setting up {model_name} model on device {device} ***", end="", flush=True)
+    if not opt.quiet:
+        print(f"*** Setting up {model_name} model on device {device} ***", end="", flush=True)
 
-    if model_name == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif model_name == "phan": model = PrunedHierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.attention_threshold, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif model_name == "hsan": model = HierarchicalSparsemaxAttentionNetwork(device)  # FIXME - Proper arguments when done
-    elif model_name == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
-    elif model_name == "hn": model = HierarchicalNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    else: model = None  # Unreachable code
+    model = select_model(model_name, dataset, opt, device)
 
     if not opt.quiet: print(" (Done)", flush=True)
 
@@ -137,14 +73,14 @@ def train(model_name, dataset, opt):
             train_losses.append(loss)
 
         mean_loss = torch.tensor(train_losses).mean().item()
-        if not opt.quiet: print('Training loss: %.4f' % mean_loss, flush=True)
+        if not opt.quiet: print('Training loss: %.4f \n' % mean_loss, flush=True)
 
         train_mean_losses.append(mean_loss)
         valid_accs.append(evaluate(model, valloader))
-        if not opt.quiet: print('Valid acc: %.4f' % (valid_accs[-1]), flush=True)
+        if not opt.quiet: print('Valid acc: %.4f \n' % (valid_accs[-1]), flush=True)
 
     final_test_accuracy = evaluate(model, testloader)
-    if not opt.quiet: print('\nFinal Test acc: %.4f' % final_test_accuracy, flush=True)
+    if not opt.quiet: print('\nFinal Test acc: %.4f \n' % final_test_accuracy, flush=True)
 
     return train_mean_losses, valid_accs, final_test_accuracy
 
@@ -178,31 +114,45 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help="Datasets pruned into smaller sizes for faster loading.")
     parser.add_argument('-quiet', action='store_true', help='No execution output.')
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
+    parser.add_argument('-nrun', type=int, help="N number of runs.", default=1)
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
+    parser.add_argument('-sample',  action='store_true', help="Use sample dataset which correspont to 20% from the entire dataset")
+    parser.add_argument('-dataset_size', type=float, help="% to split.", default=.01)
 
-    models = ['han', 'phan'] # TODO -> Add HSAN when done
+    models = ['han', 'hsan'] # TODO -> Add PSAN when done
 
     opt = parser.parse_args()
 
     dataset = load_dataset(opt)
 
-    results = {}
+    nruns = torch.arange(1, opt.nrun + 1)
 
-    runid = getrandbits(64)
-    for model in models:
-        train_mean_losses, valid_accs, final_test_accuracy = train(model, dataset, opt)
-        root = f"results/{opt.dataset}/{model}"
-        pathlib.Path(root).mkdir(parents=True, exist_ok=True)
-        with open(f"{root}/final_test_accuracy_{runid}.txt", "w") as text_file: text_file.write(f"{final_test_accuracy}")
-        np.save(root+f"/train_mean_losses_{runid}.npy", np.array(train_mean_losses))
-        np.save(root+f"/valid_accs_{runid}.npy", np.array(valid_accs))
+    for nrun in nruns:
+        if not opt.quiet: print(f"*** run number  {nrun} ***", end="", flush=True)
 
-    if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
-    for model in models:
-        train_mean_losses, valid_accs, final_test_accuracy = results[model]
-        try: os.mkdir("plots")
-        except FileExistsError: pass
-        plot(torch.arange(1, opt.epochs + 1), train_mean_losses, ylabel='Loss', name=f"plots/{opt.dataset}-{model}-training-loss")
-        plot(torch.arange(1, opt.epochs + 1), valid_accs, ylabel='Accuracy', name=f"plots/{opt.dataset}-{model}-validation-accuracy")
+        results = {}
+        runid = getrandbits(64)
+        for model in models:
+            train_mean_losses, valid_accs, final_test_accuracy = train(model, dataset, opt)
+            results[model] = train_mean_losses, valid_accs, final_test_accuracy
+            root = f"results/{opt.dataset}/{model}"
+            pathlib.Path(root).mkdir(parents=True, exist_ok=True)
+            with open(f"{root}/final_test_accuracy_{runid}.txt", "w") as text_file: text_file.write(f"{final_test_accuracy}")
+            np.save(root+f"/train_mean_losses_{runid}.npy", np.array(train_mean_losses))
+            np.save(root+f"/valid_accs_{runid}.npy", np.array(valid_accs))
+        if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
+        for model in models:
+            root = f"/results/{opt.dataset}/{model}"
 
-    if not opt.quiet: print(" (Done)\n", flush=True)
+            if not opt.debug: path = root
+            else: path = f"{root}/debug"
+
+            # from npy files
+           #  train_losses, accs,final_accuracy = load_npy_files(path)
+
+            train_mean_losses, valid_accs, final_test_accuracy = results[model]
+            try: os.mkdir("plots")
+            except FileExistsError: pass
+            plot(torch.arange(1, opt.epochs + 1), train_mean_losses, ylabel='Loss', name=f"plots/{runid}-{opt.dataset}-{model}-training-loss")
+            plot(torch.arange(1, opt.epochs + 1), valid_accs, ylabel='Accuracy', name=f"plots/{runid}-{opt.dataset}-{model}-validation-accuracy")
+        if not opt.quiet: print(" (Done)\n", flush=True)
