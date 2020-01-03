@@ -71,25 +71,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Main arguments
-    parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm', 'hn'],
-                        help="Which model should the script run?")
-    parser.add_argument('dataset', choices=['yelp', 'yahoo', 'imdb', 'amazon'],
-                        help="Which dataset to train the model on?")
-
-     # Model Parameters
-
-    parser.add_argument('-epochs', type=int, default=20)
-    parser.add_argument('-optimizer', choices=['sgd', 'adam'], default='adam')
-    parser.add_argument('-learning_rate', type=float, default=0.001)
-    parser.add_argument('-l2_decay', type=float, default=0.0)
-    parser.add_argument('-batch_size', type=int, default=64)
-    parser.add_argument('-cuda', action='store_true', help='Use cuda for parallelization if devices available')
-
-    # Miscellaneous
-
-    parser.add_argument('-debug', action='store_true', help="Datasets pruned into smaller sizes for faster loading.")
-    parser.add_argument('-quiet', action='store_true', help='No execution output.')
-    parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
+    parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm', 'hn'], help="Which model should the script run?")
+    parser.add_argument('dataset', choices=['yelp', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
 
     opt = parser.parse_args()
 
@@ -101,7 +84,6 @@ if __name__ == '__main__':
     train_mean_losses, valid_accs, final_test_accuracy = load_npy_files(path)
 
     if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
-
 
     try:
         os.mkdir("plots")

@@ -138,7 +138,7 @@ dmypy.json
 # Torch Text Datasets
 .data/*
 !.data/.gitkeep
-!.data/*_debug
+!.data/*_reduced
 
 # Torch Text Word Vectors
 .word_vectors_cache

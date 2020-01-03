@@ -287,9 +287,7 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
         self.padding_value = padding_value
         self.end_of_sentence_value = eos_value
 
-        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(
-            embeddings,
-            padding_idx=padding_value)
+        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(embeddings, padding_idx=padding_value)
 
         self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
 

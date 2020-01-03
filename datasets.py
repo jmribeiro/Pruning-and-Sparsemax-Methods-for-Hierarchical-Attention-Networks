@@ -1,57 +1,32 @@
-from abc import abstractmethod
-import csv
+import io
 import os
-import shutil
-
+import pathlib
+from functools import partial
 
 import torch
 from torch.utils.data.dataset import Dataset
 from torchtext import datasets
-from torchtext.data import Field, LabelField, TabularDataset
+from torchtext.data import Field, LabelField, TabularDataset, Example
 from torch.utils.data.dataset import random_split
+from torchtext.data.utils import RandomShuffler
 from torchtext.datasets import text_classification
+from torchtext.utils import unicode_csv_reader
 from torchtext.vocab import GloVe
 
 
-def split_csv_files(path, dataset_size):
-    print("==== Split train.csv and test.csv files =====")
-    for file_name in ["/train", "/test"]:
-        print(path + file_name)
+class CSVDataset(Dataset):
 
-        with open(path + file_name + ".csv", encoding="utf-8") as infile:
-            reader = csv.DictReader(infile)
-            header = reader.fieldnames
-            rows = [row for row in reader]
+    """
+    Abstract class for Amazon, Yelp and Yahoo datasets
+    """
 
-            csv_rows = rows[0: int(len(rows) * dataset_size)]
+    def __init__(self, val_ratio, embeddings_size, directory, reduced=False, word2vec="6B"):
 
-            with open(path + '{}_sample.csv'.format(file_name), 'w', newline='', encoding="utf-8") as outfile:
-                writer = csv.DictWriter(outfile, fieldnames=header)
-                writer.writerows(csv_rows)
-
-        print('Delete {}.csv'.format(file_name))
-        os.remove(path + file_name + '.csv')
-
-        print('Rename {}_sample.csv to {}.csv'.format(file_name, file_name))
-        os.rename(path + file_name + "_sample.csv", path + file_name + ".csv")
-
-
-def remove_path_if_exist(path):
-    # É preciso apagar a pasta de forma a gerar os 20% do dataset com o original
-
-    if os.path.exists(path):
-        shutil.rmtree(path)
-
-
-class BaseDataset(Dataset):
-
-    def __init__(self, val_ratio, embeddings_size, word2vec="6B"):
         words = Field(batch_first=True, eos_token=".", tokenize="spacy")
         labels = LabelField(dtype=torch.long)
 
-        directory = self.load_dataset(".data")
-        training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv',
-                                               fields=[('label', labels), ('text', words)])
+        if reduced: directory += "_reduced"
+        training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv', fields=[('label', labels), ('text', words)])
 
         # Vocabs
         words.build_vocab(training, vectors=GloVe(name=word2vec, dim=embeddings_size))
@@ -78,89 +53,34 @@ class BaseDataset(Dataset):
         self.sort_key = lambda example: example.text
         self.word2vec = words.vocab.vectors
 
-    @abstractmethod
-    def load_dataset(self, root):
-        raise NotImplementedError()
-
     def __len__(self):
         return len(self.training)
 
 
-class YelpDataset(BaseDataset):
+class YelpDataset(CSVDataset):
 
-    def __init__(self, embeddings_size, ngrams, full=True, debug=False, sample=False, dataset_size=.01):
+    def __init__(self, embeddings_size, ngrams, full, reduced):
         self.full = full
         self.ngrams = ngrams
-        self.debug = debug
-        self.sample = sample
-        self.dataset_size = dataset_size
-        super(YelpDataset, self).__init__(val_ratio=0.10,
-                                          embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
-
-    def load_dataset(self, root):
-        path = ".data/yelp_review_full_csv" if self.full else ".data/yelp_review_polarity_csv"
-        if not self.debug:
-            if self.sample:
-                remove_path_if_exist(path)
-            if self.full:
-                text_classification.YelpReviewFull(ngrams=self.ngrams, root=root)
-            else:
-                text_classification.YelpReviewPolarity(ngrams=self.ngrams, root=root)
-        else:
-            path += "_debug"
-        if not self.debug and self.sample:
-            split_csv_files(path, self.dataset_size)
-        return path
+        directory = ".data/yelp_review_full_csv" if full else ".data/yelp_review_polarity_csv"
+        super(YelpDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size, directory=directory, reduced=reduced)
 
 
-class YahooDataset(BaseDataset):
+class YahooDataset(CSVDataset):
 
-    def __init__(self, embeddings_size, ngrams, debug=False, sample=False, dataset_size=0.01):
+    def __init__(self, embeddings_size, ngrams, reduced):
         self.ngrams = ngrams
-        self.debug = debug
-        self.sample = sample
-        self.dataset_size = dataset_size
-        super(YahooDataset, self).__init__(val_ratio=0.10,
-                                           embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
-
-    def load_dataset(self, root):
-        path = ".data/yahoo_answers_csv"
-        if not self.debug:
-            if self.sample:
-                remove_path_if_exist(path)
-            text_classification.YahooAnswers(ngrams=self.ngrams)
-        else:
-            path += "_debug"
-        if not self.debug and self.sample:
-            split_csv_files(path, self.dataset_size)
-        return path
+        directory = ".data/yahoo_answers_csv"
+        super(YahooDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size, directory=directory, reduced=reduced)
 
 
-class AmazonDataset(BaseDataset):
+class AmazonDataset(CSVDataset):
 
-    def __init__(self, embeddings_size, ngrams, full=True, debug=False, sample=False, dataset_size=0.01):
+    def __init__(self, embeddings_size, ngrams, full, reduced):
         self.full = full
         self.ngrams = ngrams
-        self.debug = debug
-        self.sample = sample
-        self.dataset_size=dataset_size
-        super(AmazonDataset, self).__init__(val_ratio=0.10,
-                                            embeddings_size=embeddings_size)  # TODO - Confirm correct val ratio
-
-    def load_dataset(self, root):
-        path = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
-        if not self.debug:
-            if self.sample:
-                remove_path_if_exist(path)
-            if self.full:
-                text_classification.AmazonReviewFull(ngrams=self.ngrams)
-            else:
-                text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
-        else:
-            path += "_debug"
-        if not self.debug and self.sample:
-            split_csv_files(path, self.dataset_size)
-        return path
+        directory = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
+        super(AmazonDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size, directory=directory, reduced=reduced)
 
 
 class IMDBDataset(Dataset):
@@ -187,3 +107,76 @@ class IMDBDataset(Dataset):
 
     def __len__(self):
         return len(self.training)
+
+
+def download_datasets(ngrams):
+
+    root = ".data"
+    reduced_size = 0.05 # 5% of the original
+
+    # Download
+
+    text_classification.YelpReviewFull(root=root, ngrams=ngrams)
+    text_classification.YelpReviewPolarity(root=root, ngrams=ngrams)
+    text_classification.AmazonReviewFull(ngrams=ngrams)
+    text_classification.AmazonReviewPolarity(ngrams=ngrams)
+    text_classification.YahooAnswers()
+
+    # Create smaller sets
+    directories = [
+        "yahoo_answers_csv",
+        "yelp_review_full_csv",
+        "yelp_review_polarity_csv"
+        "amazon_review_full_csv"
+        "amazon_review_polarity_csv"
+    ]
+    for dataset_directory in directories:
+
+        reduced_directory = root + "/" + dataset_directory + "_reduced"
+
+        # 1 - Make reduced directory
+        pathlib.Path(reduced_directory).mkdir(parents=True, exist_ok=True)
+
+        # 2 - Reduce train.csv and test.csv (keeping label proportions)
+        reduce_train_and_test_csv(reduced_directory, reduced_size)
+
+
+def reduce_train_and_test_csv(reduced_dataset_directory, reduced_size):
+
+    # TODO - Complete if there's time
+
+    train_csv = reduced_dataset_directory + "/train.csv"
+    test_csv = reduced_dataset_directory + "/test.csv"
+
+    words = Field(batch_first=True, eos_token=".", tokenize="spacy")
+    labels = LabelField(dtype=torch.long)
+    fields = [('label', labels), ('text', words)]
+
+    make_example = Example.fromCSV
+
+    for path in [train_csv, test_csv]:
+
+        with io.open(os.path.expanduser(path), encoding="utf8") as f:
+            reader = unicode_csv_reader(f)
+            if isinstance(fields, dict):
+                header = next(reader)
+                field_to_index = {f: header.index(f) for f in fields.keys()}
+                make_example = partial(make_example, field_to_index=field_to_index)
+            examples = [make_example(line, fields) for line in reader]
+
+        if isinstance(fields, dict):
+            fields, field_dict = [], fields
+            for field in field_dict.values():
+                if isinstance(field, list): fields.extend(field)
+                else: fields.append(field)
+
+        N = len(examples)
+        randperm = RandomShuffler(range(N))
+        N2 = int(round(reduced_size * N))
+
+        index = randperm[:N2]
+
+        reduced_dataset = [examples[i] for i in index]
+
+        # TODO - Check code
+        # TODO - Save new smaller dataset

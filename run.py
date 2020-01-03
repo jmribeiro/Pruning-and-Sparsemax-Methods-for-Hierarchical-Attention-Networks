@@ -1,7 +1,9 @@
 import argparse
-import os
+import pathlib
+from random import getrandbits
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 import torch
 from torch import nn
@@ -30,13 +32,13 @@ def train_batch(batch, model, optimizer, criterion):
     loss.backward()
     optimizer.step()
 
-    loss_dtach = loss.detach()
+    loss = loss.detach()
 
-    # There's a memory leak somewhere
+    # There's a memory leak somewhere # TODO fix
     if "cuda" in model.device.type:
         torch.cuda.empty_cache()
 
-    return loss_dtach
+    return loss
 
 
 def predict(model, X):
@@ -51,7 +53,7 @@ def evaluate_batch(model, batch):
     model.eval()
     y_hat = predict(model, X)
     n_correct = (y == y_hat).sum().item()
-    # There's a memory leak somewhere
+    # There's a memory leak somewhere # TODO fix
     if "cuda" in model.device.type:
         torch.cuda.empty_cache()
     return n_correct
@@ -89,7 +91,7 @@ if __name__ == '__main__':
 
     # Main arguments
     parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm', 'hn'], help="Which model should the script run?")
-    parser.add_argument('dataset', choices=['yelp', 'yahoo', 'imdb', 'amazon'], help="Which dataset to train the model on?")
+    parser.add_argument('dataset', choices=['imdb', 'yelp', 'yahoo', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
     parser.add_argument('-embeddings_size', type=int, help="Length of the word embeddings.", default=200)
@@ -110,7 +112,7 @@ if __name__ == '__main__':
     # Miscellaneous
     parser.add_argument('-polarity', action='store_true', help="Positive/Negative labels for datasets.")
     parser.add_argument('-ngrams', type=int, help="N value for the datasets N-Grams.", default=1)
-    parser.add_argument('-debug', action='store_true', help="Datasets pruned into smaller sizes for faster loading.")
+    parser.add_argument('-reduce_dataset', action='store_true', help="Dataset pruned into smaller sizes for faster loading.")
     parser.add_argument('-quiet', action='store_true', help='No execution output.')
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
@@ -130,11 +132,11 @@ if __name__ == '__main__':
     if not opt.quiet:
         print(f"*** Loading {opt.dataset} dataset{f' [small size / debug mode]' if opt.debug else ''} ***", end="", flush=True)
 
-    if opt.dataset == "yelp": dataset = YelpDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
-    elif opt.dataset == "yahoo": dataset = YahooDataset(embeddings_size=opt.embeddings_size, ngrams=opt.ngrams, debug=opt.debug)
-    elif opt.dataset == "imdb": dataset = IMDBDataset(embeddings_size=opt.embeddings_size)
-    elif opt.dataset == "amazon": dataset = AmazonDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, debug=opt.debug)
-    else: dataset = None  # Unreachable code
+    if opt.dataset == "imdb": dataset = IMDBDataset(embeddings_size=opt.embeddings_size)
+    elif opt.dataset == "yelp": dataset = YelpDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, reduced=opt.reduce_dataset)
+    elif opt.dataset == "yahoo": dataset = YahooDataset(embeddings_size=opt.embeddings_size, ngrams=opt.ngrams, reduced=opt.reduce_dataset)
+    elif opt.dataset == "amazon": dataset = AmazonDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, reduced=opt.reduce_dataset)
+    else: raise ValueError(f"Invalid dataset {opt.dataset}")
 
     trainloader, valloader, testloader = BucketIterator.splits((dataset.training, dataset.validation, dataset.test), shuffle=True, batch_size=opt.batch_size, sort_key=dataset.sort_key)
 
@@ -153,7 +155,7 @@ if __name__ == '__main__':
     elif opt.model == "hsan": model = HierarchicalSparsemaxAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device) # FIXME - Proper arguments when done
     elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
     elif opt.model == "hn": model = HierarchicalNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    else: model = None  # Unreachable code
+    else: raise ValueError(f"Invalid model {opt.model}")
 
     if not opt.quiet: print(" (Done)", flush=True)
 
@@ -207,17 +209,28 @@ if __name__ == '__main__':
     final_test_accuracy = evaluate(model, testloader)
     if not opt.quiet: print('\nFinal Test acc: %.4f' % final_test_accuracy, flush=True)
 
-    # ######## #
-    # 4 - Plot #
-    # ######## #
+    # ############### #
+    # 4 - Plot & Save #
+    # ############### #
 
     if not opt.no_plot:
 
-        if not opt.quiet: print(f"*** Plotting validation accuracies and training losses ***", end="", flush=True)
-        try: os.mkdir("plots")
-        except FileExistsError: pass
+        unique_id = getrandbits(64)
 
-        plot(epochs, train_mean_losses, ylabel='Loss', name=f"plots/{opt.model}-training-loss")
-        plot(epochs, valid_accs, ylabel='Accuracy', name=f"plots/{opt.model}-validation-accuracy")
+        if not opt.quiet: print(f"*** Plotting and saving validation accuracies and training losses ***", end="", flush=True)
+
+        plot_directory = f"plots/{opt.dataset}/{opt.model}"
+        pathlib.Path(plot_directory).mkdir(parents=True, exist_ok=True)
+
+        plot(epochs, train_mean_losses, ylabel='Loss', name=f"{plot_directory}/training-loss_{unique_id}")
+        plot(epochs, valid_accs, ylabel='Accuracy', name=f"{plot_directory}/validation-accuracy_{unique_id}")
+
+        result_directory = f"results/{opt.dataset}/{opt.model}"
+        pathlib.Path(result_directory).mkdir(parents=True, exist_ok=True)
+
+        with open(f"{result_directory}/final_test_accuracy_{unique_id}.txt", "w") as text_file:
+            text_file.write(f"{final_test_accuracy}")
+        np.save(result_directory + f"/train_mean_losses_{unique_id}.npy", np.array(train_mean_losses))
+        np.save(result_directory + f"/valid_accs_{unique_id}.npy", np.array(valid_accs))
 
         if not opt.quiet: print(" (Done)\n", flush=True)
