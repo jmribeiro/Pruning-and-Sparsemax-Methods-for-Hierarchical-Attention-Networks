@@ -11,6 +11,7 @@ from random import getrandbits
 # Presentation #
 # ############ #
 
+
 def load_npy_files(path):
 
     global losses, valid_accs, final_accuracy
@@ -36,6 +37,7 @@ def load_npy_files(path):
             valid_accs.append(data)
     return losses, valid_accs,final_acc
 
+
 def plotfile(run, plottable, ylabel, title, name):
     plt.clf()
     plt.xlabel('Run')
@@ -45,7 +47,6 @@ def plotfile(run, plottable, ylabel, title, name):
     plt.title(title)
     plt.savefig('%s.pdf' % name, bbox_inches='tight')
     plt.close()
-
 
 
 def plotfiles(plottable, ylabel, title, name):
@@ -117,6 +118,5 @@ if __name__ == '__main__':
     nfiles = len(final_test_accuracy )
     plotfile(np.arange(1, nfiles + 1), final_test_accuracy , ylabel='Final Accuracy',
              title=f"{opt.dataset}-{model}-final-accuracy", name=f"plots/{fileid}-{opt.dataset}-{model}-final-accuracy")
-
 
     if not opt.quiet: print(" (Done)\n", flush=True)

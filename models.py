@@ -214,10 +214,10 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
         for x in X: # TODO - Check if this can be vectorized?
 
             # S x L
-            document = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
+            documents = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
 
             # S x L x E
-            words = self.embedder(document)
+            words = self.embedder(documents)
 
             # S x L x 2H
             hidden, _ = self.word_encoder(words)
@@ -227,9 +227,10 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
 
             # S x L
             attention_weights = F.softmax(hidden_representations @ self.word_context_vector, dim=1)
+            pruned_attention_weights = self.prune_attentions(attention_weights)
 
             # S x 2H
-            sentences.append(self.prune_attentions(attention_weights, hidden_representations).squeeze(dim=1))
+            sentences.append((pruned_attention_weights @ hidden).squeeze(dim=1))
 
         # B x S x 2H]
         sentences = pad_sequence(sentences, batch_first=True)
@@ -242,14 +243,23 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
 
         # B x S
         attention_weights = F.softmax(hidden_representations @ self.sentence_context_vector, dim=1)
-        document = self.prune_attentions(attention_weights, hidden_representations).squeeze(dim=1)
+        pruned_attention_weights = self.prune_attentions(attention_weights)
+        documents = (pruned_attention_weights @ hidden).squeeze(dim=1)
 
         # Batch of document "scores": num_classes outputs [BxK]
-        scores = self.hidden_to_label(document)
+        scores = self.hidden_to_label(documents)
 
         return scores
 
-    def prune_attentions(self, attention_weights, hidden_representations):
+    def prune_attentions(self, attention_weights):
+        pruned_attention_weights = (attention_weights < self.attention_threshold) * attention_weights
+        sums = pruned_attention_weights.sum(dim=1).reshape(attention_weights.shape[0], 1)
+        pruned_attentions = pruned_attention_weights / sums
+        pruned_attentions[torch.isnan(pruned_attentions)] = 0.0
+        pruned_attentions = pruned_attentions.reshape(pruned_attentions.shape[0], 1, pruned_attentions.shape[1])
+        return pruned_attentions
+
+    def prune_attentions_slow(self, attention_weights, hidden_representations):
         S, L, H2 = hidden_representations.shape
         pruned_attention_weights = (attention_weights >= self.attention_threshold).float() * attention_weights
         attention_output = torch.zeros(S, H2).to(self.device)
