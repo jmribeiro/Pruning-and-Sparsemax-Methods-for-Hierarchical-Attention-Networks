@@ -148,7 +148,7 @@ if __name__ == '__main__':
             else: path = f"{root}/debug"
 
             # from npy files
-            train_losses, accs,final_accuracy = load_npy_files(path)
+           #  train_losses, accs,final_accuracy = load_npy_files(path)
 
             train_mean_losses, valid_accs, final_test_accuracy = results[model]
             try: os.mkdir("plots")
