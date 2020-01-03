@@ -18,14 +18,14 @@ def split_csv_files(path, dataset_size):
     for file_name in ["/train", "/test"]:
         print(path + file_name)
 
-        with open(path + file_name + ".csv") as infile:
+        with open(path + file_name + ".csv", encoding="utf-8") as infile:
             reader = csv.DictReader(infile)
             header = reader.fieldnames
             rows = [row for row in reader]
 
             csv_rows = rows[0: int(len(rows) * dataset_size)]
 
-            with open(path + '{}_sample.csv'.format(file_name), 'w', newline='') as outfile:
+            with open(path + '{}_sample.csv'.format(file_name), 'w', newline='', encoding="utf-8") as outfile:
                 writer = csv.DictWriter(outfile, fieldnames=header)
                 writer.writerows(csv_rows)
 

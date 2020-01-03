@@ -55,6 +55,8 @@ if __name__ == '__main__':
     parser.add_argument('-quiet', action='store_true', help='No execution output.')
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
+    parser.add_argument('-dataset_size', type=float, help="% to split.", default=.01)
+    parser.add_argument('-sample', action='store_true', help="Use sample dataset which correspont to 20% from the entire dataset")
 
     opt = parser.parse_args()
 
@@ -149,3 +151,11 @@ if __name__ == '__main__':
         plot(epochs, valid_accs, ylabel='Accuracy', name=f"plots/{opt.model}-validation-accuracy")
 
         if not opt.quiet: print(" (Done)\n", flush=True)
+
+        runid = getrandbits(64)
+        root = f"results/{opt.dataset}/{model}"
+        pathlib.Path(root).mkdir(parents=True, exist_ok=True)
+        with open(f"{root}/final_test_accuracy_{runid}.txt", "w") as text_file: text_file.write(f"{final_test_accuracy}")
+
+        np.save(root + f"/train_mean_losses_{runid}.npy", np.array(train_mean_losses))
+        np.save(root + f"/valid_accs_{runid}.npy", np.array(valid_accs))

@@ -119,7 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('-sample',  action='store_true', help="Use sample dataset which correspont to 20% from the entire dataset")
     parser.add_argument('-dataset_size', type=float, help="% to split.", default=.01)
 
-    models = ['han'] # TODO -> Add PSAN when done
+    models = ['han', 'hsan'] # TODO -> Add PSAN when done
 
     opt = parser.parse_args()
 
@@ -153,6 +153,6 @@ if __name__ == '__main__':
             train_mean_losses, valid_accs, final_test_accuracy = results[model]
             try: os.mkdir("plots")
             except FileExistsError: pass
-            plot(torch.arange(1, opt.epochs + 1), train_mean_losses, ylabel='Loss', name=f"plots/{opt.dataset}-{model}-training-loss")
-            plot(torch.arange(1, opt.epochs + 1), valid_accs, ylabel='Accuracy', name=f"plots/{opt.dataset}-{model}-validation-accuracy")
+            plot(torch.arange(1, opt.epochs + 1), train_mean_losses, ylabel='Loss', name=f"plots/{runid}-{opt.dataset}-{model}-training-loss")
+            plot(torch.arange(1, opt.epochs + 1), valid_accs, ylabel='Accuracy', name=f"plots/{runid}-{opt.dataset}-{model}-validation-accuracy")
         if not opt.quiet: print(" (Done)\n", flush=True)
