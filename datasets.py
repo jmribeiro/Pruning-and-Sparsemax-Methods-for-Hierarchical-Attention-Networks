@@ -1,6 +1,7 @@
 import io
 import os
 import pathlib
+from abc import abstractmethod
 from functools import partial
 
 import torch
@@ -26,7 +27,11 @@ class CSVDataset(Dataset):
         labels = LabelField(dtype=torch.long)
 
         if reduced: directory += "_reduced"
-        training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv', fields=[('label', labels), ('text', words)])
+        try:
+            training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv', fields=[('label', labels), ('text', words)])
+        except:
+            self.download()
+            training, test = TabularDataset.splits(path=directory, train='train.csv', test='test.csv', format='csv', fields=[('label', labels), ('text', words)])
 
         # Vocabs
         words.build_vocab(training, vectors=GloVe(name=word2vec, dim=embeddings_size))
@@ -56,6 +61,10 @@ class CSVDataset(Dataset):
     def __len__(self):
         return len(self.training)
 
+    @abstractmethod
+    def download(self):
+        pass
+
 
 class YelpDataset(CSVDataset):
 
@@ -65,6 +74,10 @@ class YelpDataset(CSVDataset):
         directory = ".data/yelp_review_full_csv" if full else ".data/yelp_review_polarity_csv"
         super(YelpDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size, directory=directory, reduced=reduced)
 
+    def download(self):
+        if self.full: text_classification.YelpReviewFull(root=".data", ngrams=self.ngrams)
+        else: text_classification.YelpReviewPolarity(root=".data", ngrams=self.ngrams)
+
 
 class YahooDataset(CSVDataset):
 
@@ -72,6 +85,9 @@ class YahooDataset(CSVDataset):
         self.ngrams = ngrams
         directory = ".data/yahoo_answers_csv"
         super(YahooDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size, directory=directory, reduced=reduced)
+
+    def download(self):
+        text_classification.YahooAnswers()
 
 
 class AmazonDataset(CSVDataset):
@@ -82,10 +98,15 @@ class AmazonDataset(CSVDataset):
         directory = ".data/amazon_review_full_csv" if self.full else ".data/amazon_review_polarity_csv"
         super(AmazonDataset, self).__init__(val_ratio=0.10, embeddings_size=embeddings_size, directory=directory, reduced=reduced)
 
+    def download(self):
+        if self.full: text_classification.AmazonReviewFull(ngrams=self.ngrams)
+        else: text_classification.AmazonReviewPolarity(ngrams=self.ngrams)
+
 
 class IMDBDataset(Dataset):
 
     def __init__(self, embeddings_size, word2vec="6B"):
+
         words = Field(batch_first=True, eos_token=".", tokenize="spacy")
         labels = LabelField(dtype=torch.long)
 
@@ -114,8 +135,11 @@ def download_datasets(ngrams):
     root = ".data"
     reduced_size = 0.05 # 5% of the original
 
-    # Download
+    words = Field(batch_first=True, eos_token=".", tokenize="spacy")
+    labels = LabelField(dtype=torch.long)
 
+    # Download
+    datasets.IMDB.splits(words, labels)
     text_classification.YelpReviewFull(root=root, ngrams=ngrams)
     text_classification.YelpReviewPolarity(root=root, ngrams=ngrams)
     text_classification.AmazonReviewFull(ngrams=ngrams)
