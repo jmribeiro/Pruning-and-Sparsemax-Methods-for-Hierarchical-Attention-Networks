@@ -130,7 +130,7 @@ if __name__ == '__main__':
     # ############# #
 
     if not opt.quiet:
-        print(f"*** Loading {opt.dataset} dataset{f' [small size / debug mode]' if opt.debug else ''} ***", end="", flush=True)
+        print(f"*** Loading {opt.dataset} dataset{f' [reduced size]' if opt.reduce_dataset else ''} ***", end="", flush=True)
 
     if opt.dataset == "imdb": dataset = IMDBDataset(embeddings_size=opt.embeddings_size)
     elif opt.dataset == "yelp": dataset = YelpDataset(embeddings_size=opt.embeddings_size, full=not opt.polarity, ngrams=opt.ngrams, reduced=opt.reduce_dataset)
