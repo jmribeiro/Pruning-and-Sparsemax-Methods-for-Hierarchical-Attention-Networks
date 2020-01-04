@@ -178,11 +178,11 @@ class HierarchicalAttentionNetwork(nn.Module):
         return scores
 
 
-class PrunedHierarchicalAttentionNetwork(nn.Module):
+class HierarchicalPrunedAttentionNetwork(nn.Module):
 
     def __init__(self, n_classes, n_words, attention_threshold, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device):
 
-        super(PrunedHierarchicalAttentionNetwork, self).__init__()
+        super(HierarchicalPrunedAttentionNetwork, self).__init__()
 
         self.padding_value = padding_value
         self.end_of_sentence_value = eos_value
@@ -258,25 +258,6 @@ class PrunedHierarchicalAttentionNetwork(nn.Module):
         pruned_attentions[torch.isnan(pruned_attentions)] = 0.0
         pruned_attentions = pruned_attentions.reshape(pruned_attentions.shape[0], 1, pruned_attentions.shape[1])
         return pruned_attentions
-
-    def prune_attentions_slow(self, attention_weights, hidden_representations):
-        S, L, H2 = hidden_representations.shape
-        pruned_attention_weights = (attention_weights >= self.attention_threshold).float() * attention_weights
-        attention_output = torch.zeros(S, H2).to(self.device)
-        for i in range(S):
-            sentence = pruned_attention_weights[i]
-            sentence_pruned = sentence[sentence.nonzero()]
-            remaining_values = sentence_pruned.shape[0]
-            if remaining_values > 0:
-                new_weight = sentence_pruned.t()
-                new_weight = new_weight / new_weight.sum()
-                new_hiddens = hidden_representations[i, sentence.nonzero()]
-                new_hiddens = new_hiddens.reshape(remaining_values, H2)
-                new_weight = new_weight.reshape ( remaining_values)
-                for t in range(remaining_values):
-                    # TODO - Not working...
-                    attention_output[i] += new_weight[t] * new_hiddens[t]
-        return attention_output
 
 
 class HierarchicalSparsemaxAttentionNetwork(nn.Module):

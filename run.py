@@ -11,7 +11,7 @@ from torchtext.data import BucketIterator
 from tqdm import tqdm
 
 from datasets import YelpDataset, YahooDataset, IMDBDataset, AmazonDataset
-from models import HierarchicalAttentionNetwork, PrunedHierarchicalAttentionNetwork, LSTMClassifier, HierarchicalNetwork, HierarchicalSparsemaxAttentionNetwork
+from models import HierarchicalAttentionNetwork, HierarchicalPrunedAttentionNetwork, LSTMClassifier, HierarchicalNetwork, HierarchicalSparsemaxAttentionNetwork
 
 
 # #################### #
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Main arguments
-    parser.add_argument('model', choices=['han', 'phan', 'hsan', 'lstm', 'hn'], help="Which model should the script run?")
+    parser.add_argument('model', choices=['han', 'hpan', 'hsan', 'lstm', 'hn'], help="Which model should the script run?")
     parser.add_argument('dataset', choices=['imdb', 'yelp', 'yahoo', 'amazon'], help="Which dataset to train the model on?")
 
     # Model Parameters
@@ -110,9 +110,9 @@ if __name__ == '__main__':
     parser.add_argument('-cuda', action='store_true', help='Use cuda for parallelization if devices available')
 
     # Miscellaneous
-    parser.add_argument('-polarity', action='store_true', help="Positive/Negative labels for datasets.")
-    parser.add_argument('-ngrams', type=int, help="N value for the datasets N-Grams.", default=1)
-    parser.add_argument('-reduce_dataset', action='store_true', help="Dataset pruned into smaller sizes for faster loading.")
+    parser.add_argument('-polarity', action='store_true', help="Wheter of not to use only positive/negative labels for 'yelp', 'yahoo' and 'amazon' datasets.")
+    parser.add_argument('-ngrams', type=int, help="N value for the yelp and amazon datasets' N-Grams.", default=1)
+    parser.add_argument('-reduce_dataset', action='store_true', help="Datasets 'yelp', 'yahoo' and 'amazon' reduced into smaller sizes for faster loading (In development).")
     parser.add_argument('-quiet', action='store_true', help='No execution output.')
     parser.add_argument('-tqdm', action='store_true', help='Whether or not to use TQDM progress bar in training.')
     parser.add_argument('-no_plot', action='store_true', help='Whether or not to plot training losses and validation accuracies.')
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     if not opt.quiet: print(f"*** Setting up {opt.model} model on device {device} ***", end="", flush=True)
 
     if opt.model == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif opt.model == "phan": model = PrunedHierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.attention_threshold, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
+    elif opt.model == "hpan": model = HierarchicalPrunedAttentionNetwork(dataset.n_classes, dataset.n_words, opt.attention_threshold, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
     elif opt.model == "hsan": model = HierarchicalSparsemaxAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device) # FIXME - Proper arguments when done
     elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
     elif opt.model == "hn": model = HierarchicalNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
