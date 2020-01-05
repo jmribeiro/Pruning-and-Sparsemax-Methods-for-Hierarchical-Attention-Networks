@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     colors = {
         "han": "blue",
-        "phan": "green",
+        "hpan": "green",
         "hsan": "red",
         "hn": "grey",
         "lstm": "orange"
