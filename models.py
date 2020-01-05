@@ -88,6 +88,8 @@ class HierarchicalNetwork(nn.Module):
             # Document: S sentences of 2H gru-units [1xSx2H]
             sentences = torch.cat((word_encodings[-2], word_encodings[-1]), dim=1)
             documents_as_sentences.append(sentences)
+        
+        del X
 
         # Documents batch: S sentences, 2H gru-units [BxSx2H]
         documents_as_sentences = pad_sequence(documents_as_sentences, batch_first=True)
@@ -156,6 +158,8 @@ class HierarchicalAttentionNetwork(nn.Module):
 
             # S x 2H
             sentences.append((attention_weights @ hidden).squeeze(dim=1))
+        
+        del X
 
         # B x S x 2H
         sentences = pad_sequence(sentences, batch_first=True)
@@ -231,6 +235,8 @@ class HierarchicalPrunedAttentionNetwork(nn.Module):
 
             # S x 2H
             sentences.append((pruned_attention_weights @ hidden).squeeze(dim=1))
+        
+        del X
 
         # B x S x 2H]
         sentences = pad_sequence(sentences, batch_first=True)
@@ -312,6 +318,8 @@ class HierarchicalSparsemaxAttentionNetwork(nn.Module):
 
             # S x 2H
             sentences.append((attention_weights @ hidden).squeeze(dim=1))
+        
+        del X
 
         # B x S x 2H]
         sentences = pad_sequence(sentences, batch_first=True)
