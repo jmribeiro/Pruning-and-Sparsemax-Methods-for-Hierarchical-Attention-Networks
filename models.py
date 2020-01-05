@@ -355,7 +355,6 @@ class Sparsemax(nn.Module):
     def backward(self, grad_output):
         grad_input = grad_output.clone()
         grad_input[self.output == 0] = 0
-
         v_hat = grad_input.sum(dim=self.dim) / self.supp_size.to(self.output.dtype).squeeze()
         v_hat = v_hat.unsqueeze(self.dim)
         grad_input = torch.where(self.output != 0, grad_input - v_hat, grad_input)
