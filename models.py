@@ -174,15 +174,14 @@ class Sparsemax(nn.Module):
     """Sparsemax function.
 
     Pytorch implementation of Sparsemax function from:
-    -- "From Softmax to Sparsemax: A Sparse Model of Attention and Multi-Label Classification"
-    -- André F. T. Martins, Ramón Fernandez Astudillo (http://arxiv.org/abs/1602.02068)
+    -- "From https://github.com/KrisKorrel/sparsemax-pytorch:
+        -- "From Softmax to Sparsemax: A Sparse Model of Attention and Multi-Label Classification"
+        -- André F. T. Martins, Ramón Fernandez Astudillo (http://arxiv.org/abs/1602.02068)
     """
 
     def __init__(self, device, dim=None):
-        """Initialize sparsemax activation
-
-        Args:
-            dim (int, optional): The dimension over which to apply the sparsemax function.
+        """
+        Args: dim (int, optional): The dimension over which to apply the sparsemax function.
         """
         super(Sparsemax, self).__init__()
 
