@@ -5,9 +5,9 @@ lstm run 1, 0.5004
 hierarchical network run 1, 0.8762
 
 hierarchical attention network run 1, 0.86844
-hierarchical attention network run 2,
+hierarchical attention network run 2, 0.87340
 
 hierarchical pruned attention network run 1, 0.87704
 hierarchical pruned attention network run 2, 0.85770
 
-hierarchical sparsemax attention network run 1, 0.50304
+hierarchical sparsemax attention network run 1, 0.8389
