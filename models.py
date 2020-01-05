@@ -3,87 +3,9 @@ from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 
 
-class LSTMClassifier(nn.Module):
-
-    """
-    Very simple LSTM Classifier to test the datasets.
-    """
-
-    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, bidirectional, dropout, padding_value, device):
-
-        super().__init__()
-
-        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(embeddings, padding_idx=padding_value)
-        self.lstm = nn.LSTM(embeddings.shape[1], hidden_sizes, layers, dropout=dropout, batch_first=True, bidirectional=bidirectional)
-        if bidirectional: hidden_sizes *= 2
-        self.bidirectional = bidirectional
-        self.hidden_to_label = nn.Linear(hidden_sizes, n_classes)
-
-        self.device = device
-        self.to(device)
-
-    def forward(self, X):
-        embeddings = self.embedder(X)
-        _, (hidden, _) = self.lstm(embeddings)
-        hidden_last = torch.cat((hidden[-2], hidden[-1]), dim=1) if self.bidirectional else hidden[-1]
-        scores = self.hidden_to_label(hidden_last)
-        return scores
-
-
-class HierarchicalNetwork(nn.Module):
-
-    """
-        Original model from https://www.cs.cmu.edu/~./hovy/papers/16HLT-hierarchical-attention-networks.pdf
-        but without attention
-    """
-
-    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device):
-
-        super(HierarchicalNetwork, self).__init__()
-
-        self.padding_value = padding_value
-        self.end_of_sentence_value = eos_value
-
-        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(embeddings, padding_idx=padding_value)
-
-        self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
-        self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True, dropout=dropout)
-        self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
-
-        self.device = device
-        self.to(device)
-
-    def forward(self, X):
-
-        documents_as_sentences = []
-
-        for x in X:
-
-            # Sentence batch: L words [SxL]
-            document = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
-
-            # Sentence batch: L words, E embeddings [SxLxE]
-            words = self.embedder(document)
-            word_encodings = self.word_encoder(words)[1]
-
-            # Document: S sentences of 2H gru-units [1xSx2H]
-            sentences = torch.cat((word_encodings[-2], word_encodings[-1]), dim=1)
-            documents_as_sentences.append(sentences)
-        
-        del X
-
-        # Documents batch: S sentences, 2H gru-units [BxSx2H]
-        documents_as_sentences = pad_sequence(documents_as_sentences, batch_first=True)
-        sentence_encodings = self.sentence_encoder(documents_as_sentences)[1]
-
-        # Batch of document "features": 2H gru-units [Bx2H]
-        document = torch.cat((sentence_encodings[-2], sentence_encodings[-1]), dim=1)
-
-        # Batch of document "scores": num_classes outputs [BxK]
-        scores = self.hidden_to_label(document)
-
-        return scores
-
+# ############################# #
+# Main Models (HAN, HPAN, HSAN) #
+# ############################# #
 
 class HierarchicalAttentionNetwork(nn.Module):
 
@@ -111,10 +33,26 @@ class HierarchicalAttentionNetwork(nn.Module):
         self.to(device)
 
     def forward(self, X):
+        # B x S x 2H
+        X = self.process_words(X)
+        # B x S x 2H
+        hidden, _ = self.sentence_encoder(X)
+        # B x S x 2H
+        hidden_representations = self.sentence_hidden_representation(hidden)
+        # B x S
+        attention_weights = self.attention_function(hidden_representations @ self.sentence_context_vector)
+        attention_weights = self.prune_attentions(attention_weights) if self.pruned_attention else attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
+        # B x 2H
+        documents = (attention_weights @ hidden).squeeze(dim=1)
+        # B x K
+        scores = self.hidden_to_label(documents)
+        return scores
+
+    def process_words(self, documents):
         sentences = []
-        for x in X:
+        for document in documents:
             # S x L
-            words = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
+            words = split_into_sentences(document, self.padding_value, self.end_of_sentence_value)
             # S x L x E
             words = self.embedder(words)
             # S x L x 2H
@@ -126,20 +64,94 @@ class HierarchicalAttentionNetwork(nn.Module):
             attention_weights = self.prune_attentions(attention_weights) if self.pruned_attention else attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
             # S x 2H
             sentences.append((attention_weights @ hidden).squeeze(dim=1))
-        del X
         # B x S x 2H
         sentences = pad_sequence(sentences, batch_first=True)
-        # B x S x 2H
-        hidden, _ = self.sentence_encoder(sentences)
-        # B x S x 2H
-        hidden_representations = self.sentence_hidden_representation(hidden)
-        # B x S
-        attention_weights = self.attention_function(hidden_representations @ self.sentence_context_vector)
-        attention_weights = self.prune_attentions(attention_weights) if self.pruned_attention else attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
-        # B x 2H
-        documents = (attention_weights @ hidden).squeeze(dim=1)
-        # B x K
-        scores = self.hidden_to_label(documents)
+        return sentences
+
+
+# ####################### #
+# Basic Models (LSTM, HN) #
+# ####################### #
+
+class LSTMClassifier(nn.Module):
+    """
+    Very simple LSTM Classifier to test the datasets.
+    """
+
+    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, bidirectional, dropout, padding_value,
+                 device):
+        super().__init__()
+
+        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(
+            embeddings, padding_idx=padding_value)
+        self.lstm = nn.LSTM(embeddings.shape[1], hidden_sizes, layers, dropout=dropout, batch_first=True,
+                            bidirectional=bidirectional)
+        if bidirectional: hidden_sizes *= 2
+        self.bidirectional = bidirectional
+        self.hidden_to_label = nn.Linear(hidden_sizes, n_classes)
+
+        self.device = device
+        self.to(device)
+
+    def forward(self, X):
+        embeddings = self.embedder(X)
+        _, (hidden, _) = self.lstm(embeddings)
+        hidden_last = torch.cat((hidden[-2], hidden[-1]), dim=1) if self.bidirectional else hidden[-1]
+        scores = self.hidden_to_label(hidden_last)
+        return scores
+
+
+class HierarchicalNetwork(nn.Module):
+    """
+        Original model from https://www.cs.cmu.edu/~./hovy/papers/16HLT-hierarchical-attention-networks.pdf
+        but without attention
+    """
+
+    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device):
+        super(HierarchicalNetwork, self).__init__()
+
+        self.padding_value = padding_value
+        self.end_of_sentence_value = eos_value
+
+        self.embedder = nn.Embedding(n_words, embeddings.shape[1], padding_idx=padding_value).from_pretrained(
+            embeddings, padding_idx=padding_value)
+
+        self.word_encoder = nn.GRU(embeddings.shape[1], hidden_sizes, layers, batch_first=True, bidirectional=True,
+                                   dropout=dropout)
+        self.sentence_encoder = nn.GRU(hidden_sizes * 2, hidden_sizes, layers, batch_first=True, bidirectional=True,
+                                       dropout=dropout)
+        self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
+
+        self.device = device
+        self.to(device)
+
+    def forward(self, X):
+        documents_as_sentences = []
+
+        for x in X:
+            # Sentence batch: L words [SxL]
+            document = split_into_sentences(x, self.padding_value, self.end_of_sentence_value)
+
+            # Sentence batch: L words, E embeddings [SxLxE]
+            words = self.embedder(document)
+            word_encodings = self.word_encoder(words)[1]
+
+            # Document: S sentences of 2H gru-units [1xSx2H]
+            sentences = torch.cat((word_encodings[-2], word_encodings[-1]), dim=1)
+            documents_as_sentences.append(sentences)
+
+        del X
+
+        # Documents batch: S sentences, 2H gru-units [BxSx2H]
+        documents_as_sentences = pad_sequence(documents_as_sentences, batch_first=True)
+        sentence_encodings = self.sentence_encoder(documents_as_sentences)[1]
+
+        # Batch of document "features": 2H gru-units [Bx2H]
+        document = torch.cat((sentence_encodings[-2], sentence_encodings[-1]), dim=1)
+
+        # Batch of document "scores": num_classes outputs [BxK]
+        scores = self.hidden_to_label(document)
+
         return scores
 
 
