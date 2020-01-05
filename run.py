@@ -11,7 +11,7 @@ from torchtext.data import BucketIterator
 from tqdm import tqdm
 
 from datasets import YelpDataset, YahooDataset, IMDBDataset, AmazonDataset
-from models import HierarchicalAttentionNetwork, HierarchicalPrunedAttentionNetwork, LSTMClassifier, HierarchicalNetwork, HierarchicalSparsemaxAttentionNetwork
+from models import HierarchicalAttentionNetwork, LSTMClassifier, HierarchicalNetwork
 
 
 # #################### #
@@ -34,9 +34,7 @@ def train_batch(batch, model, optimizer, criterion):
 
     loss = loss.detach()
 
-    # There's a memory leak somewhere # TODO fix
-    if "cuda" in model.device.type:
-        torch.cuda.empty_cache()
+    if "cuda" in model.device.type: torch.cuda.empty_cache()
 
     return loss
 
@@ -53,9 +51,7 @@ def evaluate_batch(model, batch):
     model.eval()
     y_hat = predict(model, X)
     n_correct = (y == y_hat).sum().item()
-    # There's a memory leak somewhere # TODO fix
-    if "cuda" in model.device.type:
-        torch.cuda.empty_cache()
+    if "cuda" in model.device.type: torch.cuda.empty_cache()
     return n_correct
 
 
@@ -151,8 +147,8 @@ if __name__ == '__main__':
     if not opt.quiet: print(f"*** Setting up {opt.model} model on device {device} ***", end="", flush=True)
 
     if opt.model == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif opt.model == "hpan": model = HierarchicalPrunedAttentionNetwork(dataset.n_classes, dataset.n_words, opt.attention_threshold, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif opt.model == "hsan": model = HierarchicalSparsemaxAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device) # FIXME - Proper arguments when done
+    elif opt.model == "hpan": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.attention_threshold, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device, pruned_attention=True)
+    elif opt.model == "hsan": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device, attention_function="sparsemax")
     elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
     elif opt.model == "hn": model = HierarchicalNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
     else: raise ValueError(f"Invalid model {opt.model}")
