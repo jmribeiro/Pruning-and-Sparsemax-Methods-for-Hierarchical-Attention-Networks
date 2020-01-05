@@ -11,7 +11,7 @@ class HierarchicalAttentionNetwork(nn.Module):
 
     """ Original model from https://www.cs.cmu.edu/~./hovy/papers/16HLT-hierarchical-attention-networks.pdf"""
 
-    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device, attention_function="softmax", pruned_attention=False):
+    def __init__(self, n_classes, n_words, embeddings, layers, hidden_sizes, dropout, padding_value, eos_value, device, attention_function="softmax", pruned_attention=False, attention_threshold=None):
         super(HierarchicalAttentionNetwork, self).__init__()
         self.padding_value = padding_value
         self.end_of_sentence_value = eos_value
@@ -28,6 +28,7 @@ class HierarchicalAttentionNetwork(nn.Module):
         elif attention_function == "softmax": self.attention_function = torch.nn.Softmax(dim=1)
         else: raise ValueError(f"Unregistered attention function {attention_function}. Please pick on of the following: [sparsemax, softmax]")
         self.pruned_attention = pruned_attention
+        if self.pruned_attention: self.attention_threshold = attention_threshold
         self.hidden_to_label = nn.Linear(hidden_sizes * 2, n_classes)
         self.device = device
         self.to(device)
@@ -41,7 +42,7 @@ class HierarchicalAttentionNetwork(nn.Module):
         hidden_representations = self.sentence_hidden_representation(hidden)
         # B x S
         attention_weights = self.attention_function(hidden_representations @ self.sentence_context_vector)
-        attention_weights = self.prune_attentions(attention_weights) if self.pruned_attention else attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
+        attention_weights = prune_attentions(attention_weights, self.attention_threshold) if self.pruned_attention else attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
         # B x 2H
         documents = (attention_weights @ hidden).squeeze(dim=1)
         # B x K
@@ -61,7 +62,7 @@ class HierarchicalAttentionNetwork(nn.Module):
             hidden_representations = self.word_hidden_representation(hidden)
             # S x L
             attention_weights = self.attention_function(hidden_representations @ self.word_context_vector)
-            attention_weights = self.prune_attentions(attention_weights) if self.pruned_attention else attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
+            attention_weights = prune_attentions(attention_weights, self.attention_threshold) if self.pruned_attention else attention_weights.reshape(attention_weights.shape[0], 1, attention_weights.shape[1])
             # S x 2H
             sentences.append((attention_weights @ hidden).squeeze(dim=1))
         # B x S x 2H

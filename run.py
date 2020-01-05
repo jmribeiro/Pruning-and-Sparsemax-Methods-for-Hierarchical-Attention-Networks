@@ -147,7 +147,7 @@ if __name__ == '__main__':
     if not opt.quiet: print(f"*** Setting up {opt.model} model on device {device} ***", end="", flush=True)
 
     if opt.model == "han": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
-    elif opt.model == "hpan": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, opt.attention_threshold, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device, pruned_attention=True)
+    elif opt.model == "hpan": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device, pruned_attention=True, attention_threshold=opt.attention_threshold,)
     elif opt.model == "hsan": model = HierarchicalAttentionNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device, attention_function="sparsemax")
     elif opt.model == "lstm": model = LSTMClassifier(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.bidirectional, opt.dropout, dataset.padding_value, device)
     elif opt.model == "hn": model = HierarchicalNetwork(dataset.n_classes, dataset.n_words, dataset.word2vec, opt.layers, opt.hidden_sizes, opt.dropout, dataset.padding_value, dataset.end_of_sentence_value, device)
