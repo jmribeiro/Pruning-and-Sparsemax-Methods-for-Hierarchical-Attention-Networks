@@ -1,13 +1,19 @@
 Model, Accuracy
 
-lstm run 1, 0.5004
+hierarchical attention network run 1, 0.8684
+hierarchical attention network run 2, 0.8734
+hierarchical attention network run 3, 0.8650
+hierarchical attention network run 4, 0.8744
+hierarchical attention network run 5, 0.8730
 
-hierarchical network run 1, 0.8762
-
-hierarchical attention network run 1, 0.86844
-hierarchical attention network run 2, 0.87340
-
-hierarchical pruned attention network run 1, 0.87704
-hierarchical pruned attention network run 2, 0.85770
+hierarchical pruned attention network run 1, 0.8770
+hierarchical pruned attention network run 2, 0.8577
+hierarchical pruned attention network run 3, 0.8757
+hierarchical pruned attention network run 4,
+hierarchical pruned attention network run 5,
 
 hierarchical sparsemax attention network run 1, 0.8389
+hierarchical sparsemax attention network run 2, 0.8638
+hierarchical sparsemax attention network run 3, 0.8536
+hierarchical sparsemax attention network run 4, 0.8689
+hierarchical sparsemax attention network run 5,
