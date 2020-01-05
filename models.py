@@ -16,8 +16,8 @@ def split_into_sentences(document, padding_value, eos_value):
     """
     ends_of_sentence = (document == eos_value).nonzero()
     sentences = [document[0:eos + 1] if i == 0 else document[ends_of_sentence[i - 1] + 1:eos + 1] for i, eos in enumerate(ends_of_sentence)]
-    sentences.append(document[ends_of_sentence[-1] + 1:])
-    # TODO - Check last sentence for non pad values
+    last = document[ends_of_sentence[-1] + 1:]
+    if False in last == padding_value: sentences.append(last)
     document = pad_sequence(sentences, batch_first=True, padding_value=padding_value)
     return document
 
