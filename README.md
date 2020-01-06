@@ -25,8 +25,8 @@ e.g. - Hierarchical Attention Network on IMDB dataset
 
     $ python run.py han imdb
 
-##### Available models - lstm   # Update as implemented
-##### Available datasets - imdb # Update as implemented
+##### Available models - han, hpan, hsan, lstm, hn
+##### Available datasets - imdb, yelp, yahoo, amazon
 
 ### FAQ
 
