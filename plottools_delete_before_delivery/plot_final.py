@@ -40,32 +40,7 @@ def plot_csv(file, colors):
 
     plotfinalacc.savefigbar("final_test_accuracies.png")
 
-
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-
-    # Main arguments
-    parser.add_argument('dataset', choices=['imdb', 'yelp', 'yahoo', 'amazon'],
-                        help="Which dataset to train the model on?")
-    parser.add_argument('-epochs', type=int, default=3)
-    parser.add_argument('-nruns', type=int, default=2)
-
-    opt = parser.parse_args()
-
-    dataset = opt.dataset
-    epochs = opt.epochs
-    N = opt.nruns
-
-    colors = {
-        "han": "blue",
-        "hpan": "green",
-        "hsan": "red",
-        "hn": "grey",
-        "lstm": "orange"
-    }
-
-    plot_csv('final_test_accuracies.csv', colors)
+def plot_pdf_files(colors, epochs, dataset, N):
 
     plotvacc = Plot(f"{dataset}-Validation Accurancy per model", "Epoch", "Val Accuracy", epochs, 1, colors=colors,
                     confidence=0.99, ymin=0)
@@ -106,5 +81,33 @@ if __name__ == '__main__':
     plotfinalacc.showbar()
     plotfinalacc.savefigbar(plot_directory + f"{dataset}results_finalacc.pdf")
 
-    print("..")
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+
+    # Main arguments
+    parser.add_argument('dataset', choices=['imdb', 'yelp', 'yahoo', 'amazon'],
+                        help="Which dataset to train the model on?")
+    parser.add_argument('-epochs', type=int, default=3)
+    parser.add_argument('-nruns', type=int, default=2)
+
+    opt = parser.parse_args()
+
+    dataset = opt.dataset
+    epochs = opt.epochs
+    N = opt.nruns
+
+    colors = {
+        "han": "blue",
+        "hpan": "green",
+        "hsan": "red",
+        "hn": "grey",
+        "lstm": "orange"
+    }
+
+    print("..PDF..")
+    plot_pdf_files(colors, epochs, dataset, N)
+
+    print("..CSV..")
     plot_csv('final_test_accuracies.csv', colors)
