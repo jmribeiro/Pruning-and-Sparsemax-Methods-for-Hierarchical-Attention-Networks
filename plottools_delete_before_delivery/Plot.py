@@ -157,7 +157,7 @@ class Plot:
         agents_labels = []
 
         for agent_name, stats in self._stats.items():
-
+            print (stats.means, stats._std_devs)
             num_runs = stats.num_runs
             agents_names.append(agent_name)
             agents_mean.append (stats.means[0])
@@ -180,7 +180,7 @@ class Plot:
         ax.set_xticklabels(agents_labels)
 
         ax.yaxis.grid(True)
-        ax.set_title(self._title)
+        # ax.set_title(self._title)
 
         ax.set_ylabel(self._y_label)
 

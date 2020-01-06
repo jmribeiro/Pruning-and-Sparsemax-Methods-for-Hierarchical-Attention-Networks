@@ -18,11 +18,11 @@ def plot_help(final_accuracy, model, plotfinalacc, acurracy):
 
 
 def plot_csv(file, colors):
-    os.chdir("../results")
+    os.chdir("../")
     df = pd.read_csv(file)
 
     plotfinalacc = Plot(f"{dataset}-Final Test Accurancy ", "Epoch", "Test Accuracy", 1, 1, colors=colors,
-                        confidence=0.95, ymin=0)
+                        confidence=0.99, ymin=0)
 
     for model in colors:
         for index, row in df.iterrows():
@@ -59,8 +59,8 @@ if __name__ == '__main__':
 
     colors = {
         "han": "blue",
-        "hpan": "green",
-        "hsan": "red",
+        "hpan": "red",
+        "hsan": "green",
         "hn": "grey",
         "lstm": "orange"
     }
