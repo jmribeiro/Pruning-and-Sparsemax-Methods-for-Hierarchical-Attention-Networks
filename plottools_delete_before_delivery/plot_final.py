@@ -35,7 +35,7 @@ def plot_csv(file, colors):
                 plot_help(final_accuracy, model, plotfinalacc, row[1])
             if model == 'hpan' and 'pruned' in row[0]:
                 plot_help(final_accuracy, model, plotfinalacc, row[1])
-            if model == 'han' and 'attention network' in row[0]:
+            if model == 'han' and 'hierarchical attention network' in row[0]:
                 plot_help(final_accuracy, model, plotfinalacc, row[1])
 
     plotfinalacc.savefigbar("final_test_accuracies.png")
