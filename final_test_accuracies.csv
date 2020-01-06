@@ -1,14 +1,17 @@
 Model, Accuracy
+
 hierarchical attention network run 1,0.8684
 hierarchical attention network run 2,0.8734
 hierarchical attention network run 3,0.865
 hierarchical attention network run 4,0.8744
 hierarchical attention network run 5,0.873
+
 hierarchical pruned attention network run 1,0.877
 hierarchical pruned attention network run 2,0.8577
 hierarchical pruned attention network run 3,0.8757
+
 hierarchical sparsemax attention network run 1,0.8389
 hierarchical sparsemax attention network run 2,0.8638
 hierarchical sparsemax attention network run 3,0.8536
 hierarchical sparsemax attention network run 4,0.8689
-hierarchical sparsemax attention network run 5, 0.8570
+hierarchical sparsemax attention network run 5,0.8570
