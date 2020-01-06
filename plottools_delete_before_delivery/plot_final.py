@@ -22,7 +22,7 @@ def plot_csv(file, colors):
     df = pd.read_csv(file)
 
     plotfinalacc = Plot(f"{dataset}-Final Test Accurancy ", "Epoch", "Test Accuracy", 1, 1, colors=colors,
-                        confidence=0.99, ymin=0)
+                        confidence=0.95, ymin=0)
 
     for model in colors:
         for index, row in df.iterrows():
@@ -39,47 +39,6 @@ def plot_csv(file, colors):
                 plot_help(final_accuracy, model, plotfinalacc, row[1])
 
     plotfinalacc.savefigbar("final_test_accuracies.png")
-
-def plot_pdf_files(colors, epochs, dataset, N):
-
-    plotvacc = Plot(f"{dataset}-Validation Accurancy per model", "Epoch", "Val Accuracy", epochs, 1, colors=colors,
-                    confidence=0.99, ymin=0)
-    plotloss = Plot(f"{dataset}-Loss per model", "Epoch", "Loss", epochs, 1, colors=colors, confidence=0.99,
-                    ymin=0)
-    plotfinalacc = Plot(f"{dataset}-Final Test Accurancy ", "Epoch", "Test Accuracy", 1, 1, colors=colors,
-                        confidence=0.99, ymin=0)
-    for model in colors:
-        directory = f"results/{dataset}/{model}"
-        pathlib.Path(directory).mkdir(parents=True, exist_ok=True)
-
-        for file in os.listdir(directory):
-
-            if isfile(join(directory, file)):
-                if (".txt" in file) and plotfinalacc.num_runs(model) < N:
-                    with open(directory + "/" + file, 'r') as data:
-                        final_accuracy = []
-                        data = float(data.read())
-
-                        final_accuracy.append(data)
-                        run = np.array(final_accuracy)
-                        plotfinalacc.add_run(model, run)
-                else:
-                    if "losses" in file and plotloss.num_runs(model) < N:
-                        run = np.load(directory + "/" + file)
-                        plotloss.add_run(model, run)
-                    else:
-                        if plotvacc.num_runs(model) < N:
-                            run = np.load(directory + "/" + file)
-                            plotvacc.add_run(model, run)
-
-    plot_directory = f"plots/{dataset}/"
-    pathlib.Path(plot_directory).mkdir(parents=True, exist_ok=True)
-    plotloss.show()
-    plotloss.savefig(plot_directory + f"{dataset}results_loss.pdf")
-    plotvacc.show()
-    plotvacc.savefig(plot_directory + f"{dataset}results_validationacc.pdf")
-    plotfinalacc.showbar()
-    plotfinalacc.savefigbar(plot_directory + f"{dataset}results_finalacc.pdf")
 
 
 if __name__ == '__main__':
@@ -105,9 +64,6 @@ if __name__ == '__main__':
         "hn": "grey",
         "lstm": "orange"
     }
-
-    print("..PDF..")
-    plot_pdf_files(colors, epochs, dataset, N)
 
     print("..CSV..")
     plot_csv('final_test_accuracies.csv', colors)
